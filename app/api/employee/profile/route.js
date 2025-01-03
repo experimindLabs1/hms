@@ -1,54 +1,48 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '/lib/db';
+import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '@/utils/auth';
+
+const prisma = new PrismaClient();
 
 export async function GET(request) {
     try {
-        const token = request.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            console.log('No token found');
+        const token = request.cookies.get('token')?.value;
+        const authResult = await verifyToken(token);
+
+        if (!authResult.success) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const tokenData = await verifyToken(token);
-        console.log('Token data:', tokenData);
-
-        if (!tokenData) {
-            console.log('Invalid token data');
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        console.log('Auth Result:', authResult);
 
         const employee = await prisma.employee.findUnique({
-            where: { 
-                employeeId: tokenData.employeeId 
-            },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                position: true,
-                department: true,
-                dateOfJoining: true,
-                employeeId: true,
-                baseSalary: true,
-                personalEmail: true,
-                gender: true,
-                dateOfBirth: true
+            where: {
+                id: authResult.id
             }
         });
 
-        console.log('Found employee:', employee);
+        console.log('Found Employee:', {
+            id: employee.id,
+            canAccessPayslip: employee.canAccessPayslip,
+            firstName: employee.firstName
+        });
 
         if (!employee) {
-            console.log('No employee found for ID:', tokenData.employeeId);
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
-        return NextResponse.json(employee);
+        const response = {
+            ...employee,
+            canAccessPayslip: employee.canAccessPayslip ?? false
+        };
+
+        return NextResponse.json(response);
+
     } catch (error) {
-        console.error('Error in profile route:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        console.error('Error fetching employee profile:', error);
+        return NextResponse.json(
+            { error: 'Failed to fetch employee profile', details: error.message },
+            { status: 500 }
+        );
     }
 } 

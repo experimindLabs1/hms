@@ -18,66 +18,140 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const router = useRouter()
+  const [payslips, setPayslips] = useState([])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        if (!token) {
-          console.log('No token found in localStorage')
-          router.push('/login')
-          return
-        }
-
-        const config = {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-
-        const currentDate = new Date();
-        const currentMonth = currentDate.getMonth() + 1;
-        const currentYear = currentDate.getFullYear();
-
-        const [employeeResponse, attendanceResponse, payrollResponse] = await Promise.all([
-          axios.get('/api/employee/profile', config),
-          axios.get('/api/employee/attendance', {
-            ...config,
-            params: {
-              month: currentMonth,
-              year: currentYear
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('No token found in localStorage');
+                router.push('/login');
+                return;
             }
-          }),
-          axios.get('/api/employee/payroll', {
-            ...config,
-            params: {
-              month: currentMonth,
-              year: currentYear
+
+            const config = {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            // Get employee profile directly first
+            const employeeResponse = await axios.get('/api/employee/profile', config);
+            console.log('Raw Employee Response:', employeeResponse.data);
+            console.log('canAccessPayslip value:', employeeResponse.data.canAccessPayslip);
+            setEmployee(employeeResponse.data);
+
+            const currentDate = new Date();
+            const currentMonth = currentDate.getMonth() + 1;
+            const currentYear = currentDate.getFullYear();
+
+            // Then get attendance and payroll data
+            const [attendanceResponse, payrollResponse] = await Promise.all([
+                axios.get('/api/employee/attendance', {
+                    ...config,
+                    params: {
+                        month: currentMonth,
+                        year: currentYear
+                    }
+                }),
+                axios.get('/api/employee/payroll', {
+                    ...config,
+                    params: {
+                        month: currentMonth,
+                        year: currentYear
+                    }
+                })
+            ]);
+
+            setAttendanceData(attendanceResponse.data);
+            setPayrollData(payrollResponse.data);
+
+        } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+            if (err.response?.status === 401 || err.response?.status === 404) {
+                router.push('/login');
+            } else {
+                setError('Failed to fetch dashboard data');
             }
-          })
-        ])
-
-        console.log('Employee data:', employeeResponse.data)
-        console.log('Attendance data:', attendanceResponse.data)
-        console.log('Payroll data:', payrollResponse.data)
-
-        setEmployee(employeeResponse.data)
-        setAttendanceData(attendanceResponse.data)
-        setPayrollData(payrollResponse.data)
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err)
-        if (err.response?.status === 401 || err.response?.status === 404) {
-          router.push('/login')
-        } else {
-          setError('Failed to fetch dashboard data')
+        } finally {
+            setLoading(false);
         }
-      } finally {
-        setLoading(false)
-      }
+    };
+
+    fetchDashboardData();
+  }, [router]);
+
+  useEffect(() => {
+    const fetchPayslips = async () => {
+        try {
+            const currentDate = new Date();
+            const payslipsData = [];
+            
+            // Get last 6 months of payslips
+            for(let i = 0; i < 6; i++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                
+                const response = await axios.get(`/api/employee/payslips`, {
+                    params: { month, year },
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.data) {
+                    payslipsData.push({
+                        id: response.data.id,
+                        month: response.data.month,
+                        amount: `Rs. ${response.data.amount.toFixed(2)}`,
+                        date: date.toISOString(),
+                        year: year,
+                        monthNum: month,
+                        isApproved: response.data.isApproved
+                    });
+                }
+            }
+            setPayslips(payslipsData);
+        } catch (error) {
+            console.error('Error fetching payslips:', error);
+            setError('Failed to fetch payslips');
+        }
+    };
+
+    fetchPayslips();
+  }, []);
+
+  const generatePayslip = async (payslip) => {
+    try {
+        console.log('Opening payslip for:', payslip);
+        const response = await axios.post('/api/employee/generate-payslip', {
+            month: new Date(payslip.date).getMonth() + 1,
+            year: new Date(payslip.date).getFullYear()
+        }, {
+            responseType: 'blob',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        // Create a blob from the PDF Stream
+        const file = new Blob([response.data], { type: 'application/pdf' });
+        
+        // Create object URL and open in new tab
+        const fileURL = URL.createObjectURL(file);
+        window.open(fileURL, '_blank');
+        
+        // Clean up the object URL after the window opens
+        setTimeout(() => {
+            URL.revokeObjectURL(fileURL);
+        }, 100);
+    } catch (error) {
+        console.error('Error generating payslip:', error);
+        setError('Failed to generate payslip');
     }
-
-    fetchDashboardData()
-  }, [router])
+  };
 
   if (loading) return (
     <div className="flex justify-center items-center h-screen">
@@ -247,27 +321,25 @@ export default function EmployeeDashboard() {
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Current Month Salary</span>
-                      <span className="text-sm font-medium text-green-600 dark:text-green-400">Rs. {payrollData?.monthlySalary || 'N/A'}</span>
+                      <span className="text-sm font-medium text-green-600 dark:text-green-400">Rs. {payrollData?.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Per Day Salary</p>
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">Rs. {payrollData?.perDaySalary || 'N/A'}</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">Rs. {payrollData?.perDaySalary?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}
+                        </p>
                       </div>
                       <div className="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Payable Amount</p>
-                        <p className="text-xl font-bold text-green-600 dark:text-green-400">Rs. {payrollData?.payableAmount || 'N/A'}</p>
+                        <p className="text-xl font-bold text-green-600 dark:text-green-400">Rs. {payrollData?.payableAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</p>
                       </div>
                     </div>
                     <div className="mt-6">
                       <h3 className="text-lg font-semibold mb-4">Recent Payslips</h3>
                       <div className="backdrop-blur-sm bg-white/30">
                         <ul className="space-y-4">
-                          {[
-                            { id: 1, month: "November 2023", amount: "Rs. 50,000", date: "2023-11-30" },
-                            { id: 2, month: "October 2023", amount: "Rs. 50,000", date: "2023-10-31" },
-                            { id: 3, month: "September 2023", amount: "Rs. 50,000", date: "2023-09-30" },
-                          ].map((payslip) => (
+                          {payslips.map((payslip) => (
                             <li 
                               key={payslip.id} 
                               className="flex items-center justify-between p-4 bg-gray-100/95 dark:bg-gray-800/95 rounded-lg backdrop-blur-sm shadow-sm"
@@ -282,7 +354,14 @@ export default function EmployeeDashboard() {
                                 <span className="font-bold text-green-600 dark:text-green-400 mr-4">
                                   {payslip.amount}
                                 </span>
-                                <Button variant="outline" size="sm">View</Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => generatePayslip(payslip)}
+                                >
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  View
+                                </Button>
                               </div>
                             </li>
                           ))}

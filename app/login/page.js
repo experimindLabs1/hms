@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import axios from "axios";
 
 export default function LoginPage() {
   const [employeeId, setEmployeeId] = useState("");
@@ -17,7 +16,9 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
+    
+    if (loading) return;
+    
     setLoading(true);
     setError("");
 
@@ -36,41 +37,31 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem("token", data.token);
-        
-        // Store token in cookie
-        document.cookie = `token=${data.token}; path=/`;
-        
-        // Store other user data
-        localStorage.setItem("role", data.role);
-        if (data.role === "admin") {
-          localStorage.setItem("adminId", data.id);
-        } else {
-          localStorage.setItem("employeeId", data.employeeId);
-          localStorage.setItem("userId", data.id);
-        }
-
-        // Set Authorization header for future requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-
-        // Redirect based on role
-        if (data.role === "admin") {
-          router.push("/manage-employees");
-        } else {
-          router.push("/employee-dashboard");
-        }
-
-        if (data.isAdmin) {
-          localStorage.setItem('token', data.token);
-        }
-      } else {
-        setError(data.error || "Login failed");
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed");
       }
+
+      // Store user data in localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+      
+      if (data.role === "admin") {
+        localStorage.setItem("adminId", data.id);
+      } else {
+        localStorage.setItem("employeeId", data.employeeId);
+        localStorage.setItem("userId", data.id);
+      }
+
+      // Redirect based on role
+      if (data.role === "admin") {
+        router.push("/manage-employees");
+      } else {
+        router.push("/employee-dashboard");
+      }
+
     } catch (error) {
       console.error("Login error:", error);
-      setError("Internal server error");
+      setError(error.message || "Failed to login. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +83,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
-                  if (e.target.value) setEmployeeId(""); // Clear employeeId if username is entered
+                  if (e.target.value) setEmployeeId("");
                 }}
                 placeholder="Enter admin username"
               />
@@ -106,7 +97,7 @@ export default function LoginPage() {
                 value={employeeId}
                 onChange={(e) => {
                   setEmployeeId(e.target.value);
-                  if (e.target.value) setUsername(""); // Clear username if employeeId is entered
+                  if (e.target.value) setUsername("");
                 }}
                 placeholder="Enter employee ID"
                 disabled={username.length > 0}
@@ -121,13 +112,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                required
               />
             </div>
 
             <Button 
               type="submit" 
               className="w-full"
-              disabled={loading}
+              disabled={loading || (!username && !employeeId) || !password}
             >
               {loading ? "Logging in..." : "Login"}
             </Button>

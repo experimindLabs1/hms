@@ -12,7 +12,7 @@
   "dependencies": {
     "@faker-js/faker": "^9.3.0",
     "@nextui-org/react": "^2.6.5",
-    "@prisma/client": "^6.0.1",
+    "@prisma/client": "^6.1.0",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.2",
@@ -36,6 +36,7 @@
     "framer-motion": "^11.13.5",
     "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.468.0",
     "next": "14.2.16",
     "node-cron": "^3.0.3",
@@ -43,6 +44,7 @@
     "react": "^18",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18",
+    "react-hot-toast": "^2.5.1",
     "sonner": "^1.7.1",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
@@ -57,7 +59,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.16",
     "postcss": "^8",
-    "prisma": "^6.0.1",
+    "prisma": "^6.1.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

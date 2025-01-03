@@ -12,9 +12,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX } from 'lucide-react';
+import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText } from 'lucide-react';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
-import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +25,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import LeaveRequests from './leave-requests';
+import { toast } from 'react-hot-toast';
+import { Checkbox } from "@/components/ui/checkbox"
 
 
 const formatDateToISO = (date) => {
@@ -71,23 +72,43 @@ const ManageEmployee = () => {
             const employeesResponse = await axios.get(`/api/employees`);
             const allEmployees = employeesResponse.data;
 
-            // Fetch attendance for the selected date
+            // Fetch attendance for the selected date - add error handling
             const attendanceResponse = await axios.get(`/api/attendance/${formattedDate}`);
-            const todaysAttendance = attendanceResponse.data;
+            let todaysAttendance = attendanceResponse.data;
+
+            // Add console log to debug attendance data
+            console.log('Fetched attendance for date:', formattedDate, todaysAttendance);
+
+            // Ensure todaysAttendance is an array
+            if (!Array.isArray(todaysAttendance)) {
+                console.error('Attendance data is not an array:', todaysAttendance);
+                todaysAttendance = [];
+            }
 
             // Fetch payroll data for each employee
             const payrollData = await Promise.all(
                 allEmployees.map(async (employee) => {
-                    const payrollResponse = await axios.get(`/api/payroll?employeeId=${employee.id}&month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}`);
+                    const payrollResponse = await axios.get(
+                        `/api/payroll?employeeId=${employee.id}&month=${
+                            selectedDate.getMonth() + 1
+                        }&year=${selectedDate.getFullYear()}`
+                    );
                     return payrollResponse.data;
                 })
             );
 
             // Merge employee data with payroll and attendance data
             const mergedData = allEmployees.map((employee, index) => {
+                // Find attendance record for this employee
                 const attendanceRecord = todaysAttendance.find(
-                    (record) => record.employee.id === employee.id
+                    (record) => record.employeeId === employee.id
                 );
+                
+                console.log(
+                    `Employee ${employee.id} attendance:`, 
+                    attendanceRecord
+                );
+
                 const payroll = payrollData[index];
 
                 return {
@@ -121,16 +142,18 @@ const ManageEmployee = () => {
     const updateAttendanceStatus = async (employeeId, newStatus) => {
         try {
             const date = formatDateToISO(selectedDate);
-
-            // Update the attendance in the database
+            
             await axios.post('/api/attendance', {
                 employeeId,
                 status: newStatus,
                 date,
             });
 
-            // Refresh data
-            await fetchEmployeesAndPayroll();
+            // Add a small delay before refreshing to ensure the database has updated
+            setTimeout(() => {
+                fetchEmployeesAndPayroll();
+            }, 100);
+
         } catch (error) {
             console.error('Error updating attendance status:', error);
             setError('Failed to update attendance status');
@@ -169,6 +192,34 @@ const ManageEmployee = () => {
         absent: employees.filter((e) => e.status.toLowerCase() === "absent").length,
         onLeave: employees.filter((e) => e.status.toLowerCase() === "on leave").length,
         unmarked: employees.filter((e) => e.status.toLowerCase() === "unmarked").length,
+    };
+
+    const generatePayslip = async (employee) => {
+        try {
+            const response = await axios.post(`/api/payroll/generate-payslip`, {
+                employeeId: employee.id,
+                month: selectedDate.getMonth() + 1,
+                year: selectedDate.getFullYear()
+            }, {
+                responseType: 'blob' // Important for handling PDF
+            });
+
+            // Create a blob from the PDF Stream
+            const file = new Blob([response.data], { type: 'application/pdf' });
+            
+            // Create a link element to trigger download
+            const fileURL = URL.createObjectURL(file);
+            const link = document.createElement('a');
+            link.href = fileURL;
+            link.download = `payslip-${employee.firstName}-${employee.lastName}-${selectedDate.getMonth() + 1}-${selectedDate.getFullYear()}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(fileURL);
+        } catch (error) {
+            console.error('Error generating payslip:', error);
+            toast.error('Failed to generate payslip');
+        }
     };
 
     return (
@@ -267,11 +318,7 @@ const ManageEmployee = () => {
                                             key={employee.id}
                                             className="flex items-center hover:bg-[#f3f3f3] rounded-3xl transition-colors duration-400 ease-in-out"
                                         >
-                                            <div className="p-4 w-1/12">
-                                                <Checkbox
-                                                    onCheckedChange={() => toggleEmployeeSelection(employee.id)}
-                                                />
-                                            </div>
+                                           
                                             <div className="p-4 w-1/5 flex items-center gap-3">
                                                 <Avatar>
                                                     <AvatarImage
@@ -349,10 +396,54 @@ const ManageEmployee = () => {
                                                             <span className="text-sm text-gray-600">Total days:</span>
                                                             <span className="font-medium">{employee.totalDaysPresent}</span>
                                                         </div>
-                                                        <div className="flex justify-between items-center">
+                                                        <div className="flex justify-between items-center mb-2">
                                                             <span className="text-sm text-gray-600">Payable:</span>
                                                             <span className="font-medium text-green-600">Rs.{employee.payableAmount}</span>
                                                         </div>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="w-full mt-2"
+                                                            onClick={() => generatePayslip(employee)}
+                                                        >
+                                                            <FileText className="h-4 w-4 mr-2" />
+                                                            Generate Payslip
+                                                        </Button>
+                                                        {/* <div className="flex items-center justify-between mt-2">
+                                                            <span className="text-sm">Allow Payslip Access:</span>
+                                                            <Checkbox 
+                                                                checked={employee.canAccessPayslip}
+                                                                onCheckedChange={async (checked) => {
+                                                                    try {
+                                                                        console.log('Before Update - Employee:', employee);
+                                                                        console.log('Before Update - canAccessPayslip:', employee.canAccessPayslip);
+                                                                        console.log('Attempting to set access to:', checked);
+
+                                                                        const response = await axios.patch(`/api/employees/${employee.id}/payslip-access`, {
+                                                                            canAccess: checked
+                                                                        });
+
+                                                                        console.log('API Response:', response.data);
+
+                                                                        // Update local state
+                                                                        const updatedEmployees = employees.map(emp => 
+                                                                            emp.id === employee.id 
+                                                                                ? {...emp, canAccessPayslip: checked}
+                                                                                : emp
+                                                                        );
+
+                                                                        console.log('Updated Employee:', updatedEmployees.find(e => e.id === employee.id));
+                                                                        setEmployees(updatedEmployees);
+                                                                        
+                                                                        toast.success('Payslip access updated');
+                                                                    } catch (error) {
+                                                                        console.error('Error updating payslip access:', error);
+                                                                        console.error('Error details:', error.response?.data);
+                                                                        toast.error('Failed to update payslip access');
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div> */}
                                                     </CardContent>
                                                 </Card>
                                             </div>

@@ -2,12 +2,28 @@ import { jwtVerify, SignJWT } from 'jose';
 
 export async function verifyToken(token) {
   try {
+    if (!token) {
+      return { success: false, error: 'No token provided' };
+    }
+
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-    return payload;
+    
+    try {
+      const { payload } = await jwtVerify(token, secret);
+      return {
+        success: true,
+        id: payload.id,
+        role: payload.role,
+        employeeId: payload.employeeId
+      };
+    } catch (jwtError) {
+      console.error('JWT verification failed:', jwtError);
+      return { success: false, error: 'Invalid token' };
+    }
+
   } catch (error) {
     console.error('Token verification error:', error);
-    throw new Error('Invalid token');
+    return { success: false, error: error.message };
   }
 }
 

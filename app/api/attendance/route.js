@@ -19,7 +19,11 @@ export async function POST(req) {
       where: {
         employeeId_date: {
           employeeId,
-          date: new Date(date),
+          date: new Date(Date.UTC(
+            new Date(date).getUTCFullYear(),
+            new Date(date).getUTCMonth(),
+            new Date(date).getUTCDate()
+          )),
         },
       },
       update: {
@@ -28,7 +32,11 @@ export async function POST(req) {
       create: {
         employeeId,
         status,
-        date: new Date(date),
+        date: new Date(Date.UTC(
+          new Date(date).getUTCFullYear(),
+          new Date(date).getUTCMonth(),
+          new Date(date).getUTCDate()
+        )),
       },
     });
 

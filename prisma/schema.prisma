@@ -8,9 +8,9 @@ generator client {
 }
 
 model Admin {
-  id       Int      @id @default(autoincrement())
-  username String   @unique
-  password String
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -43,16 +43,16 @@ model Employee {
   updatedAt          DateTime     @updatedAt
   leaveRequests      LeaveRequest[]
   attendance         Attendance[]
+  canAccessPayslip   Boolean      @default(false)
 }
 
-
 model Attendance {
-  id            String      @id @default(cuid())
-  employeeId    Int         // Changed from String to Int to match Employee.id
+  id            String       @id @default(cuid())
+  employeeId    Int        
   date          DateTime
-  status        String      // PRESENT, ABSENT, etc.
-  type          String?     // REGULAR, LEAVE, etc.
-  leaveRequestId Int?       // Changed from String? to Int? to match LeaveRequest.id
+  status        String      
+  type          String?     
+  leaveRequestId Int?       
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   employee      Employee    @relation(fields: [employeeId], references: [id])
@@ -69,7 +69,7 @@ model LeaveRequest {
   status      String        @default("PENDING")
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  leaveDates  LeaveDate[]   // Relation to LeaveDate model
+  leaveDates  LeaveDate[]   
   attendance  Attendance[]
 }
 
@@ -80,20 +80,3 @@ model LeaveDate {
   leaveRequestId Int
 }
 
-model Payslip {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int
-  month       Int
-  year        Int
-  basicSalary Float
-  grossEarnings Float
-  totalDeductions Float
-  netPayable  Float
-  paidDays    Int
-  lopDays     Int    // Loss of Pay days
-  payDate     DateTime
-  createdAt   DateTime @default(now())
-  employee    Employee @relation(fields: [employeeId], references: [id])
-
-  @@unique([employeeId, month, year])
-}
