@@ -1,14 +1,13 @@
 {
-  "name": "hr_management",
+  "name": "hms",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && npx prisma db push && next build",
-    "start": "next start",
+    "build": "prisma generate && next build",
+    "start": "next start -p $PORT",
     "lint": "next lint",
-    "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@faker-js/faker": "^9.3.0",
