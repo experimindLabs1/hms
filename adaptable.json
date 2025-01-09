@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm install && npm run build",
+  "startCommand": "npm start",
+  "env": {
+    "DATABASE_URL": "file:./dev.db",
+    "JWT_SECRET": "6187202edd95f5571a31858e2370f330e27b6fe70662568ac9cae280fdaca0a5d8ea7f8260d5c2ef190e7661b4535dacfb2e197d5f499694396bf52ecefd3058"
+  }
+} 
