@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: hms-app
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1 

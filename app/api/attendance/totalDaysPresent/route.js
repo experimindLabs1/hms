@@ -1,5 +1,7 @@
 import { prisma } from '/lib/db'; // Import Prisma Client
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request) {
   try {
     // Get employeeId from query parameters

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyToken } from '@/utils/auth';
 
-export async function POST(req: Request) {
+
+export async function POST(req) {
     try {
         const body = await req.json();
         console.log('Received attendance request body:', body);
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
         console.log('Created/Updated attendance:', attendance);
         return NextResponse.json(attendance);
-    } catch (error: any) {
+    } catch (error) {
         console.error('Detailed error:', error);
         return NextResponse.json(
             { error: 'Failed to create attendance record', details: error.message },

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, addDays, differenceInDays, isBefore } from "date-fns";
 import axios from 'axios';
 import { Badge } from "@/components/ui/badge";
+import CustomCalendar from '@/app/calendar/components/CustomCalendar';
 
 export default function LeaveRequest() {
     const [selectedDates, setSelectedDates] = useState([]);
@@ -56,23 +56,33 @@ export default function LeaveRequest() {
         return !groups.some(group => group.length > 3);
     };
 
-    const handleDateSelect = (dates) => {
-        // Check if any selected date is less than 3 days from now
+    const handleDateSelect = (date) => {
+        // Check if date is less than 3 days from now
         const minDate = getMinimumDate();
-        const hasInvalidDate = dates.some(date => isBefore(date, minDate));
-        
-        if (hasInvalidDate) {
+        if (isBefore(date, minDate)) {
             setError('Leave must be requested at least 3 days in advance');
             return;
         }
 
+        // Create new array with selected dates
+        let newDates;
+        if (selectedDates.some(existingDate => 
+            existingDate.getTime() === date.getTime()
+        )) {
+            // If date is already selected, remove it
+            newDates = selectedDates.filter(d => d.getTime() !== date.getTime());
+        } else {
+            // Add the new date
+            newDates = [...selectedDates, date];
+        }
+
         // Check consecutive days rule
-        if (!isConsecutiveDaysValid(dates)) {
+        if (!isConsecutiveDaysValid(newDates)) {
             setError('Cannot select more than 3 consecutive days');
             return;
         }
 
-        setSelectedDates(dates);
+        setSelectedDates(newDates);
         setError('');
     };
 
@@ -167,13 +177,9 @@ export default function LeaveRequest() {
                                 </span>
                             </label>
                             <div className="border rounded-md p-4">
-                                <Calendar
-                                    mode="multiple"
-                                    selected={selectedDates}
-                                    onSelect={handleDateSelect}
-                                    disabled={(date) => isBefore(date, getMinimumDate())}
-                                    className="rounded-md"
-                                    numberOfMonths={1}
+                                <CustomCalendar
+                                    selectedDate={selectedDates[selectedDates.length - 1] || new Date()}
+                                    onSelectDate={handleDateSelect}
                                 />
                             </div>
                             {selectedDates.length > 0 && (

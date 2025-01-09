@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const CustomCalendar = ({ selectedDate, onSelectDate }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), 1)));
+const CustomCalendar = ({ selectedDates = [], onSelectDate }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)));
 
   const daysInMonth = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() + 1, 0)).getUTCDate();
   const firstDayOfMonth = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), 1)).getUTCDay();
@@ -16,10 +16,18 @@ const CustomCalendar = ({ selectedDate, onSelectDate }) => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const isSelectedDate = (day) => {
-    return selectedDate.getUTCDate() === day &&
-           selectedDate.getUTCMonth() === currentMonth.getUTCMonth() &&
-           selectedDate.getUTCFullYear() === currentMonth.getUTCFullYear();
+  const isDateSelected = (day) => {
+    return selectedDates.some(date => 
+      date.getUTCDate() === day &&
+      date.getUTCMonth() === currentMonth.getUTCMonth() &&
+      date.getUTCFullYear() === currentMonth.getUTCFullYear()
+    );
+  };
+
+  const isDateDisabled = (day) => {
+    const date = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), day));
+    const today = new Date();
+    return date < today;
   };
 
   const handlePrevMonth = () => {
@@ -31,6 +39,7 @@ const CustomCalendar = ({ selectedDate, onSelectDate }) => {
   };
 
   const handleDateClick = (day) => {
+    if (isDateDisabled(day)) return;
     const newDate = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), day));
     onSelectDate(newDate);
   };
@@ -50,22 +59,29 @@ const CustomCalendar = ({ selectedDate, onSelectDate }) => {
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-          <div key={day} className="text-sm font-medium text-gray-500">
+          <div key={day} className="text-sm font-medium text-gray-500 p-2">
             {day}
           </div>
         ))}
         {emptyDays.map((_, index) => (
-          <div key={`empty-${index}`} className="h-8"></div>
+          <div key={`empty-${index}`} className="h-10"></div>
         ))}
         {days.map((day) => (
           <button
             key={day}
             onClick={() => handleDateClick(day)}
-            className={`h-8 w-8 rounded-full flex items-center justify-center text-sm
-              ${isSelectedDate(day)
-                ? 'bg-gray-500 text-white'
-                : 'hover:bg-gray-100'
-              }`}
+            disabled={isDateDisabled(day)}
+            className={`
+              h-10 w-10 rounded-full flex items-center justify-center text-sm
+              transition-colors duration-200
+              ${isDateSelected(day)
+                ? 'bg-primary text-white hover:bg-primary/90'
+                : isDateDisabled(day)
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'hover:bg-gray-100'
+              }
+              ${isDateDisabled(day) ? 'cursor-not-allowed' : 'cursor-pointer'}
+            `}
           >
             {day}
           </button>

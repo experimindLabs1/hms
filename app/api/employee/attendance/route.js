@@ -90,4 +90,6 @@ export async function GET(request) {
         console.error('Error fetching attendance:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-} 
+}
+
+export const dynamic = 'force-dynamic' 

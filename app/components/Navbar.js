@@ -3,9 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar, LayoutDashboard, Users, UserPlus, Laptop, AppWindowIcon as Apps, IndianRupee, Star, Bell, Settings } from 'lucide-react'
-import { calendar } from "@nextui-org/react"
+import { Users } from 'lucide-react'
 
 const navigation = [
   // { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

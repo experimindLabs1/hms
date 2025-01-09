@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 
 export default function EmployeeDashboard() {
     const { id } = useParams(); // Get employee ID from URL

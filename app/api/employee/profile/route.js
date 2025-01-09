@@ -4,6 +4,8 @@ import { verifyToken } from '@/utils/auth';
 
 const prisma = new PrismaClient();
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request) {
     try {
         const token = request.cookies.get('token')?.value;

@@ -15,7 +15,6 @@ import {
 import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText } from 'lucide-react';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
 import Link from 'next/link';
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CustomCalendar from '../calendar/components/CustomCalendar';
 import {
@@ -26,7 +25,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import LeaveRequests from './leave-requests';
 import { toast } from 'react-hot-toast';
-import { Checkbox } from "@/components/ui/checkbox"
 
 
 const formatDateToISO = (date) => {
@@ -53,17 +51,12 @@ const getStatusColor = (status) => {
 const ManageEmployee = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [employees, setEmployees] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEmployees, setSelectedEmployees] = useState([]);
-
-    useEffect(() => {
-        fetchEmployeesAndPayroll();
-    }, [selectedDate]);
+    const [selectedDates, setSelectedDates] = useState([selectedDate]);
 
     const fetchEmployeesAndPayroll = async () => {
-        setLoading(true);
         setError(null);
         const formattedDate = formatDateToISO(selectedDate);
 
@@ -124,10 +117,16 @@ const ManageEmployee = () => {
         } catch (error) {
             console.error("Error fetching data:", error);
             setError("Failed to load data. Please try again.");
-        } finally {
-            setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const fetchData = async () => {
+            await fetchEmployeesAndPayroll();
+        };
+
+        fetchData();
+    }, [selectedDate]);
 
     const handleAddEmployee = async (newEmployee) => {
         try {
@@ -176,17 +175,6 @@ const ManageEmployee = () => {
         }
     };
 
-
-    const toggleEmployeeSelection = (employeeId) => {
-        setSelectedEmployees((prevSelected) => {
-            if (prevSelected.includes(employeeId)) {
-                return prevSelected.filter((id) => id !== employeeId);
-            } else {
-                return [...prevSelected, employeeId];
-            }
-        });
-    };
-
     const attendanceSummary = {
         present: employees.filter((e) => e.status.toLowerCase() === "present").length,
         absent: employees.filter((e) => e.status.toLowerCase() === "absent").length,
@@ -220,6 +208,11 @@ const ManageEmployee = () => {
             console.error('Error generating payslip:', error);
             toast.error('Failed to generate payslip');
         }
+    };
+
+    const handleDateSelect = (date) => {
+        setSelectedDate(date);
+        setSelectedDates([date]);
     };
 
     return (
@@ -471,8 +464,8 @@ const ManageEmployee = () => {
                             </CardHeader>
                             <CardContent>
                                 <CustomCalendar
-                                    selectedDate={selectedDate}
-                                    onSelectDate={(date) => setSelectedDate(date)}
+                                    selectedDates={selectedDates}
+                                    onSelectDate={handleDateSelect}
                                 />
                             </CardContent>
                         </Card>

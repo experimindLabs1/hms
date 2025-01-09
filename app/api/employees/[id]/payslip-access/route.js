@@ -17,7 +17,7 @@ export async function PATCH(request, { params }) {
         const employeeId = parseInt(params.id);
 
         // Simplified update operation
-        const updatedEmployee = await prisma.$executeRaw`
+        await prisma.$executeRaw`
             UPDATE Employee 
             SET canAccessPayslip = ${canAccess} 
             WHERE id = ${employeeId}

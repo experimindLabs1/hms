@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { verifyAuth } from "@/lib/auth";
+import { verifyToken} from "@/utils/auth";
 
 const prisma = new PrismaClient();
 
 export async function POST(request, { params }) {
     try {
         // Verify admin authentication
-        const authResult = await verifyAuth(request);
+        const authResult = await verifyToken(request);
         if (!authResult.success || authResult.role !== 'admin') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }

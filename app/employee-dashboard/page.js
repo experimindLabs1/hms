@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, DollarSign, Clock, UserCircle, BarChart2, FileText, Settings, ChevronRight } from 'lucide-react'
+import { Calendar, DollarSign, UserCircle, FileText, Settings } from 'lucide-react'
 import LeaveRequest from './leave-request'
 
 export default function EmployeeDashboard() {
@@ -167,7 +167,7 @@ export default function EmployeeDashboard() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome, {employee.firstName}!</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Here's what's happening with your account today.</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Here&apos;s what&apos;s happening with your account today.</p>
           </div>
           <Button variant="outline" onClick={() => router.push('/settings')}>
             <Settings className="mr-2 h-4 w-4" /> Settings
