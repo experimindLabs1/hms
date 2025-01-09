@@ -3,9 +3,6 @@ const nextConfig = {
     output: 'standalone',
     experimental: {
         serverActions: true,
-    },
-    env: {
-        PORT: process.env.PORT || 3000
     }
 }
 
