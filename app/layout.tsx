@@ -4,6 +4,8 @@ import "./globals.css";
 import { NextUIProvider } from "@nextui-org/react";
 import { Navbar } from "./components/Navbar"
 import { Toaster } from "sonner";
+import { SpeedInsights } from '@vercel/speed-insights/next';
+
 
 // Import custom fonts
 const geistSans = localFont({
@@ -39,8 +41,10 @@ export default function RootLayout({
           <main>
             <Navbar />
             {children}
+            <SpeedInsights />
+
             <Toaster position="top-right" />
-            </main>
+          </main>
         </NextUIProvider>
       </body>
     </html>
