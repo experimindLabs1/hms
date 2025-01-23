@@ -199,10 +199,10 @@ const ManageEmployee = () => {
     return (
         <div className="container mx-auto p-4 sm:p-6">
             <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-blue-900">Employee Attendance</h1>
-            {error && <div className="text-red-500 mb-4">{error}</div>}
+            {/* {error && <div className="text-red-500 mb-4">{error}</div>} */}
             <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
                 {/* Attendance List and Summary */}
-                <div className="w-full lg:w-2/3 space-y-4 sm:space-y-6">
+                <div className="w-full lg:w-3/4 space-y-4 sm:space-y-6">
                     {/* Attendance Summary */}
                     <Card className='rounded-xl shadow-sm border border-gray-100'>
                         <CardHeader></CardHeader>
@@ -401,64 +401,69 @@ const ManageEmployee = () => {
                     </Card>
                 </div>
 
-                {/* Calendar and Actions */}
-                <Card className="w-full lg:w-1/3 rounded-xl shadow-sm border border-gray-100">
-                    <CardHeader>
-                        <CardTitle className='font-thin text-blue-900'>
-                            {formatDateToISO(selectedDate)}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="w-full">
-                        <AdminCalendar 
-                            selected={selectedDate}
-                            onSelect={(date) => {
-                                if (date) {
-                                    setSelectedDate(date);
-                                    setSelectedDates([date]);
-                                }
-                            }}
-                        />
-                        {selectedEmployees.length > 0 && (
-                            <>
-                                <Button
-                                    className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                                    onClick={() => markBulkAttendance('present')}
-                                >
-                                    <UserCheck className="h-4 w-4 mr-2" />
-                                    Mark Present
-                                </Button>
-                                <Button
-                                    className="w-full mt-2 bg-red-600 hover:bg-red-700"
-                                    onClick={() => markBulkAttendance('absent')}
-                                >
-                                    <UserX className="h-4 w-4 mr-2" />
-                                    Mark Absent
-                                </Button>
-                                <Button
-                                    className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700"
-                                    onClick={() => markBulkAttendance('On Leave')}
-                                >
-                                    <UserX className="h-4 w-4 mr-2" />
-                                    On Leave
-                                </Button>
-                            </>
-                        )}
-                        <Button 
-                            className="w-full mt-4 bg-blue-600 hover:bg-blue-700" 
-                            onClick={() => setIsModalOpen(true)}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Employee
-                        </Button>
-                    </CardContent>
-                </Card>
+                {/* Calendar and Actions Column */}
+                <div className="w-full lg:w-1/4 space-y-4 sm:space-y-6">
+                    {/* Calendar Card */}
+                    <Card className="rounded-xl shadow-sm border border-gray-100">
+                        <CardHeader>
+                            <CardTitle className='font-thin text-blue-900'>
+                                {formatDateToISO(selectedDate)}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="w-full">
+                            <AdminCalendar 
+                                selected={selectedDate}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setSelectedDate(date);
+                                        setSelectedDates([date]);
+                                    }
+                                }}
+                            />
+                            {selectedEmployees.length > 0 && (
+                                <>
+                                    <Button
+                                        className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                                        onClick={() => markBulkAttendance('present')}
+                                    >
+                                        <UserCheck className="h-4 w-4 mr-2" />
+                                        Mark Present
+                                    </Button>
+                                    <Button
+                                        className="w-full mt-2 bg-red-600 hover:bg-red-700"
+                                        onClick={() => markBulkAttendance('absent')}
+                                    >
+                                        <UserX className="h-4 w-4 mr-2" />
+                                        Mark Absent
+                                    </Button>
+                                    <Button
+                                        className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700"
+                                        onClick={() => markBulkAttendance('On Leave')}
+                                    >
+                                        <UserX className="h-4 w-4 mr-2" />
+                                        On Leave
+                                    </Button>
+                                </>
+                            )}
+                            <Button 
+                                className="w-full mt-4 bg-blue-600 hover:bg-blue-700" 
+                                onClick={() => setIsModalOpen(true)}
+                            >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Employee
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Leave Requests */}
+                    <LeaveRequests />
+                </div>
             </div>
             <AddEmployeeModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onAddEmployee={handleAddEmployee}
             />
-            <LeaveRequests />
         </div>
     );
 };

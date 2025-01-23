@@ -3,61 +3,89 @@ import { prisma } from '/lib/db'; // Import Prisma Client
 export async function POST(req) {
   try {
     const { employeeId, status, date } = await req.json();
-
-    // Check if employee exists
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-    });
-    if (!employee) {
-      return new Response(JSON.stringify({ error: 'Employee not found' }), {
-        status: 404,
-      });
-    }
-
-    // Use upsert to create or update the attendance record
-    const attendanceRecord = await prisma.attendance.upsert({
+    
+    // Convert date string to Date object
+    const formattedDate = new Date(date);
+    
+    const attendance = await prisma.attendance.upsert({
       where: {
         employeeId_date: {
-          employeeId,
-          date: new Date(Date.UTC(
-            new Date(date).getUTCFullYear(),
-            new Date(date).getUTCMonth(),
-            new Date(date).getUTCDate()
-          )),
-        },
+          employeeId: employeeId,
+          date: formattedDate
+        }
       },
-      update: {
-        status,
+      update: { 
+        status: status,
+        updatedAt: new Date() // Add this to force update
       },
       create: {
-        employeeId,
-        status,
-        date: new Date(Date.UTC(
-          new Date(date).getUTCFullYear(),
-          new Date(date).getUTCMonth(),
-          new Date(date).getUTCDate()
-        )),
+        employeeId: employeeId,
+        status: status,
+        date: formattedDate
       },
+      select: {
+        id: true,
+        status: true,
+        date: true,
+        employeeId: true
+      }
     });
 
-    return new Response(JSON.stringify(attendanceRecord), { status: 200 });
+    return Response.json(attendance);
   } catch (error) {
-    console.error('Error creating/updating attendance record:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error' }),
-      { status: 500 }
-    );
+    console.error('Attendance update error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const attendance = await prisma.attendance.findMany();
-    return new Response(JSON.stringify(attendance), { status: 200 });
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
+    const date = searchParams.get('date');
+
+    const attendance = await prisma.attendance.findMany({
+      take: limit,
+      skip: skip,
+      where: date ? {
+        date: {
+          equals: new Date(date).toISOString()
+        }
+      } : undefined,
+      orderBy: {
+        date: 'desc'
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        status: true,
+        date: true
+      }
+    });
+
+    const total = await prisma.attendance.count({
+      where: date ? {
+        date: {
+          equals: new Date(date).toISOString()
+        }
+      } : undefined
+    });
+
+    return Response.json({
+      data: attendance,
+      pagination: {
+        total,
+        page,
+        pageSize: limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching attendance records:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error' }),
+    return Response.json(
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

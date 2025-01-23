@@ -7,26 +7,45 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const month = parseInt(searchParams.get("month")) || new Date().getMonth() + 1;
         const year = parseInt(searchParams.get("year")) || new Date().getFullYear();
+        const limit = 50; // Add reasonable limit
 
-        // Fetch all employees with their attendance records
+        // First, get employees with basic info
         const employees = await prisma.employee.findMany({
-            include: {
-                attendance: {
-                    where: {
-                        AND: [
-                            { date: { gte: new Date(year, month - 1, 1) } },
-                            { date: { lt: new Date(year, month, 1) } }
-                        ]
-                    }
-                }
+            take: limit,
+            select: {
+                id: true,
+                employeeId: true,
+                firstName: true,
+                lastName: true,
+                baseSalary: true,
             }
         });
 
-        // Calculate payroll information for each employee
+        // Then, get attendance data in a separate query
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 1);
+        
+        const attendance = await prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                employeeId: {
+                    in: employees.map(emp => emp.id)
+                },
+                date: {
+                    gte: startDate,
+                    lt: endDate
+                },
+                status: 'present'
+            },
+            _count: {
+                status: true
+            }
+        });
+
+        // Combine the data
         const employeesWithPayroll = employees.map(employee => {
-            // Calculate payroll information based on baseSalary
-            const perDaySalary = employee.baseSalary / 30; // Assuming 30 days per month
-            const presentDays = employee.attendance.filter(a => a.status.toLowerCase() === 'present').length;
+            const presentDays = attendance.find(a => a.employeeId === employee.id)?._count?.status || 0;
+            const perDaySalary = employee.baseSalary / 30;
             const payableAmount = perDaySalary * presentDays;
 
             return {
@@ -45,72 +64,50 @@ export async function GET(request) {
 }
 
 export async function POST(req) {
-  try {
-    const employeeData = await req.json();
-    const {
-      employeeId,
-      password, // New field
-      firstName,
-      lastName,
-      email,
-      position,
-      phone,
-      gender,
-      department,
-      dateOfJoining,
-      dateOfBirth,
-      fatherName,
-      pan,
-      personalEmail,
-      residentialAddress,
-      paymentMode,
-      accountNumber,
-      accountHolderName,
-      bankName,
-      ifsc,
-      accountType,
-      baseSalary, // Include this field
-    } = employeeData;
+    try {
+        const data = await req.json();
+        
+        // Validate and format dates
+        const validateDate = (dateStr) => {
+            if (!dateStr) return null;
+            const date = new Date(dateStr);
+            // Check if date is valid and within reasonable range (1900-2100)
+            if (isNaN(date.getTime()) || date.getFullYear() < 1900 || date.getFullYear() > 2100) {
+                throw new Error('Invalid date format or out of range');
+            }
+            return date.toISOString();
+        };
 
-    const parsedBaseSalary = parseFloat(baseSalary);
-    if (isNaN(parsedBaseSalary)) {
-      throw new Error('Invalid baseSalary value');
+        const formattedData = {
+            ...data,
+            dateOfJoining: validateDate(data.dateOfJoining),
+            dateOfBirth: validateDate(data.dateOfBirth),
+            baseSalary: parseFloat(data.baseSalary)
+        };
+
+        const employee = await prisma.employee.create({
+            data: formattedData,
+            select: {
+                id: true,
+                employeeId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                position: true,
+                department: true,
+                dateOfJoining: true,
+                baseSalary: true
+            }
+        });
+
+        return NextResponse.json(employee);
+    } catch (error) {
+        console.error("Error creating employee:", error);
+        return NextResponse.json(
+            { error: error.message || "Failed to create employee" },
+            { status: 400 }
+        );
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newEmployee = await prisma.employee.create({
-      data: {
-        employeeId,
-        password: hashedPassword, // Store the hashed password
-        firstName,
-        lastName,
-        email,
-        position,
-        phone,
-        gender,
-        department,
-        dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        fatherName,
-        pan,
-        personalEmail,
-        residentialAddress,
-        paymentMode,
-        accountNumber,
-        accountHolderName,
-        bankName,
-        ifsc,
-        accountType,
-        baseSalary: parsedBaseSalary, // Save it as a float
-
-      },
-    });
-    return new Response(JSON.stringify(newEmployee), { status: 201 });
-  } catch (error) {
-    console.error('Error creating employee:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
 }
 
 export async function DELETE(req) {
@@ -120,6 +117,9 @@ export async function DELETE(req) {
 
     const existingEmployee = await prisma.employee.findUnique({
       where: { id: parseInt(id) },
+      select: {
+        id: true
+      }
     });
 
     if (!existingEmployee) {
