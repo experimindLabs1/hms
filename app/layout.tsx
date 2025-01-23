@@ -42,7 +42,6 @@ export default function RootLayout({
             <Navbar />
             {children}
             <SpeedInsights />
-
             <Toaster position="top-right" />
           </main>
         </NextUIProvider>

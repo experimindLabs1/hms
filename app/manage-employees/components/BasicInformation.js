@@ -1,68 +1,97 @@
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 
 export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectChange }) => (
-    <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Basic Information</h3>
-        <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 grid grid-cols-2 gap-4">
+    <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800">Basic Information</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Employee ID <span className="text-red-500">*</span>
+                </label>
                 <Input
-                    placeholder="Employee ID"
+                    placeholder="Enter employee ID"
                     name="employeeId"
                     value={newEmployee.employeeId}
                     onChange={handleInputChange}
                     required
                 />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Password <span className="text-red-500">*</span>
+                </label>
                 <Input
                     type="password"
-                    placeholder="Password"
+                    placeholder="Enter password"
                     name="password"
                     value={newEmployee.password}
                     onChange={handleInputChange}
                     required
                 />
             </div>
-            <Input
-                type="email"
-                placeholder="Email Address"
-                name="email"
-                value={newEmployee.email}
-                onChange={handleInputChange}
-                required
-            />
-            <Input
-                placeholder="Phone Number"
-                name="phone"
-                value={newEmployee.phone}
-                onChange={handleInputChange}
-            />
-            <Select
-                value={newEmployee.gender}
-                onValueChange={(value) => handleSelectChange("gender", value)}
-            >
-                <SelectTrigger>
-                    <SelectValue placeholder="Gender" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-            </Select>
-            <Input 
-                type="date" 
-                placeholder="Date of Joining"
-                name="dateOfJoining"
-                value={newEmployee.dateOfJoining}
-                onChange={handleInputChange}
-            />
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Email Address <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    type="email"
+                    placeholder="Enter email address"
+                    name="email"
+                    value={newEmployee.email}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Phone Number <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    placeholder="Enter phone number"
+                    name="phone"
+                    value={newEmployee.phone}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Gender <span className="text-red-500">*</span>
+                </label>
+                <Select
+                    value={newEmployee.gender}
+                    onValueChange={(value) => handleSelectChange("gender", value)}
+                    required
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Date of Joining <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    type="date"
+                    name="dateOfJoining"
+                    value={newEmployee.dateOfJoining}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
         </div>
     </div>
-)
-
+);

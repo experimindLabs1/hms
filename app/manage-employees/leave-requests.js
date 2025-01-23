@@ -79,44 +79,46 @@ export default function LeaveRequests() {
     if (error) return <div className="text-red-500">{error}</div>;
 
     return (
-        <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Leave Requests ({leaveRequests.length})</CardTitle>
+        <Card className="mt-4 sm:mt-6">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4">
+                <CardTitle className="text-lg sm:text-xl mb-2 sm:mb-0">
+                    Leave Requests ({leaveRequests.length})
+                </CardTitle>
                 <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={refreshData}
-                    className="ml-2"
+                    className="w-full sm:w-auto"
                 >
                     Refresh
                 </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2 sm:p-4">
                 {leaveRequests.length === 0 ? (
-                    <div className="text-center text-gray-500">No leave requests found</div>
+                    <div className="text-center text-gray-500 py-4">No leave requests found</div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2 sm:space-y-4">
                         {leaveRequests.map((request) => (
-                            <Card key={request.id} className="p-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="font-semibold">
+                            <Card key={request.id} className="p-3 sm:p-4">
+                                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                                    <div className="w-full sm:w-auto">
+                                        <h3 className="font-semibold text-sm sm:text-base">
                                             {request.employee.firstName} {request.employee.lastName}
                                         </h3>
-                                        <p className="text-sm text-gray-500">
+                                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                                             Dates: {request.leaveDates.map(date => 
                                                 format(new Date(date.date), 'MMM dd, yyyy')
                                             ).join(', ')}
                                         </p>
-                                        <p className="text-sm mt-2">{request.reason}</p>
+                                        <p className="text-xs sm:text-sm mt-2">{request.reason}</p>
                                     </div>
-                                    <div className="space-x-2">
-                                        {request.status === 'PENDING' && (
+                                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                                        {request.status === 'PENDING' ? (
                                             <>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="bg-green-50 text-green-600 hover:bg-green-100"
+                                                    className="flex-1 sm:flex-none bg-green-50 text-green-600 hover:bg-green-100"
                                                     onClick={() => handleStatusUpdate(request.id, 'APPROVED')}
                                                 >
                                                     Approve
@@ -124,15 +126,14 @@ export default function LeaveRequests() {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="bg-red-50 text-red-600 hover:bg-red-100"
+                                                    className="flex-1 sm:flex-none bg-red-50 text-red-600 hover:bg-red-100"
                                                     onClick={() => handleStatusUpdate(request.id, 'REJECTED')}
                                                 >
                                                     Reject
                                                 </Button>
                                             </>
-                                        )}
-                                        {request.status !== 'PENDING' && (
-                                            <span className={`px-2 py-1 rounded-full text-sm ${
+                                        ) : (
+                                            <span className={`px-2 py-1 rounded-full text-xs sm:text-sm ${
                                                 request.status === 'APPROVED' 
                                                     ? 'bg-green-100 text-green-600' 
                                                     : 'bg-red-100 text-red-600'
