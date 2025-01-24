@@ -1,50 +1,36 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { verifyToken } from '@/utils/auth';
+import prisma from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
-export const dynamic = 'force-dynamic'
-
-export async function GET(request) {
+export async function GET() {
     try {
-        const token = request.cookies.get('token')?.value;
-        const authResult = await verifyToken(token);
-
-        if (!authResult.success) {
+        const session = await getServerSession(authOptions);
+        
+        if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        console.log('Auth Result:', authResult);
-
-        const employee = await prisma.employee.findUnique({
-            where: {
-                id: authResult.id
+        const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: {
+                employeeDetails: true,
+                leaveBalance: true
             }
         });
 
-        console.log('Found Employee:', {
-            id: employee.id,
-            canAccessPayslip: employee.canAccessPayslip,
-            firstName: employee.firstName
-        });
-
-        if (!employee) {
+        if (!user) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
-        const response = {
-            ...employee,
-            canAccessPayslip: employee.canAccessPayslip ?? false
-        };
-
-        return NextResponse.json(response);
-
+        // Remove sensitive information
+        const { password, ...userWithoutPassword } = user;
+        return NextResponse.json(userWithoutPassword);
     } catch (error) {
         console.error('Error fetching employee profile:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch employee profile', details: error.message },
+            { error: 'Failed to fetch employee profile' },
             { status: 500 }
         );
     }
-} 
+}

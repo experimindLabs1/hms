@@ -1,64 +1,41 @@
+import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/utils/auth";
 
-// Define protected routes
-const protectedRoutes = ["/manage-employees", "/employee-dashboard"];
-const adminRoutes = ["/manage-employees"];
-const employeeRoutes = ["/employee-dashboard"];
+export default withAuth(
+    function middleware(req) {
+        const token = req.nextauth.token;
+        const path = req.nextUrl.pathname;
 
-export async function middleware(request) {
-  const { pathname } = request.nextUrl;
+        // If user is an employee, they should only access employee routes
+        if (token?.role === "EMPLOYEE") {
+            if (!path.startsWith("/employee-dashboard")) {
+                return NextResponse.redirect(new URL("/employee-dashboard", req.url));
+            }
+        }
 
-  // Check if it's a protected route
-  if (protectedRoutes.includes(pathname)) {
-    // Get token from Authorization header
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.split(" ")[1] || request.cookies.get("token")?.value;
+        // If user is an admin, they should only access admin routes
+        if (token?.role === "ADMIN") {
+            if (path.startsWith("/employee-dashboard")) {
+                return NextResponse.redirect(new URL("/manage-employees", req.url));
+            }
+        }
 
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url));
+        return NextResponse.next();
+    },
+    {
+        callbacks: {
+            authorized: ({ token }) => !!token
+        }
     }
+);
 
-    try {
-      // Verify token
-      const decoded = await verifyToken(token);
-
-      // Check role-based access
-      if (decoded.role === "admin" && !adminRoutes.includes(pathname)) {
-        return NextResponse.redirect(new URL("/manage-employees", request.url));
-      }
-
-      if (decoded.role === "employee" && !employeeRoutes.includes(pathname)) {
-        return NextResponse.redirect(new URL("/employee-dashboard", request.url));
-      }
-
-      // Add user info to headers for API routes
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set("user", JSON.stringify(decoded));
-
-      return NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      });
-    } catch (error) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-  }
-
-  return NextResponse.next();
-}
-
+// Protect these routes
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+    matcher: [
+        "/manage-employees/:path*",
+        "/employee-dashboard/:path*",
+        "/manage-employees",
+        "/employee-dashboard"
+    ]
 };
 

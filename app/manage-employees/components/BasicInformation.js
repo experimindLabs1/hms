@@ -16,12 +16,13 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     Employee ID <span className="text-red-500">*</span>
                 </label>
                 <Input
-                    placeholder="Enter employee ID"
-                    name="employeeId"
-                    value={newEmployee.employeeId}
-                    onChange={handleInputChange}
-                    required
+                    placeholder="Will be auto-generated (e.g., EMP001)"
+                    disabled
+                    className="bg-gray-50"
                 />
+                <span className="text-xs text-gray-500 italic">
+                    This will be automatically generated
+                </span>
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
@@ -31,7 +32,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     type="password"
                     placeholder="Enter password"
                     name="password"
-                    value={newEmployee.password}
+                    value={newEmployee.password || ''}
                     onChange={handleInputChange}
                     required
                 />
@@ -44,7 +45,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     type="email"
                     placeholder="Enter email address"
                     name="email"
-                    value={newEmployee.email}
+                    value={newEmployee.email || ''}
                     onChange={handleInputChange}
                     required
                 />
@@ -56,7 +57,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                 <Input
                     placeholder="Enter phone number"
                     name="phone"
-                    value={newEmployee.phone}
+                    value={newEmployee.phone || ''}
                     onChange={handleInputChange}
                     required
                 />
@@ -66,7 +67,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     Gender <span className="text-red-500">*</span>
                 </label>
                 <Select
-                    value={newEmployee.gender}
+                    value={newEmployee.gender || ''}
                     onValueChange={(value) => handleSelectChange("gender", value)}
                     required
                 >
@@ -87,7 +88,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                 <Input
                     type="date"
                     name="dateOfJoining"
-                    value={newEmployee.dateOfJoining}
+                    value={newEmployee.dateOfJoining || ''}
                     onChange={handleInputChange}
                     required
                 />

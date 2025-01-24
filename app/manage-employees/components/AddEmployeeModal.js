@@ -9,77 +9,169 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { BasicInformation } from "./BasicInformation";
 import { PersonalInformation } from "./PersonalInformation";
 import { PaymentInformation } from "./PaymentInformation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "react-hot-toast";
 
 export const AddEmployeeModal = ({ isOpen, onClose, onAddEmployee }) => {
     const [currentSlide, setCurrentSlide] = useState(1);
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
     const [newEmployee, setNewEmployee] = useState({
-        employeeId: "",
-        password: "",
-        firstName: "",
-        lastName: "",
-        position: "",
-        department: "",
-        email: "",
-        phone: "",
-        gender: "",
-        dateOfJoining: "",
-        dateOfBirth: "",
-        fatherName: "",
-        pan: "",
-        personalEmail: "",
-        residentialAddress: "",
-        paymentMode: "",
-        accountNumber: "",
-        accountHolderName: "",
-        bankName: "",
-        ifsc: "",
-        accountType: "",
-        baseSalary: "",
+        password: '',
+        name: '',
+        email: '',
+        department: '',
+        position: '',
+        salary: '',
+        bankAccountNumber: '',
+        bankName: '',
+        taxId: '',
+        employmentType: 'FULL_TIME',
+        dateOfJoining: '',
+        phone: '',
+        gender: ''
     });
+
+    const validateFirstSlide = () => {
+        // Basic validations for first slide
+        if (!newEmployee.name || !newEmployee.department) {
+            setError("Name and department are required");
+            return false;
+        }
+        if (!newEmployee.position || !newEmployee.department) {
+            setError("Position and department are required");
+            return false;
+        }
+        if (!newEmployee.email || !/\S+@\S+\.\S+/.test(newEmployee.email)) {
+            setError("Valid email address is required");
+            return false;
+        }
+        if (!newEmployee.phone || !/^\d{10}$/.test(newEmployee.phone)) {
+            setError("Valid 10-digit phone number is required");
+            return false;
+        }
+        return true;
+    };
+
+   
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setNewEmployee(prev => ({ ...prev, [name]: value }));
+        setNewEmployee(prev => ({
+            ...prev,
+            [name]: value
+        }));
+        setError(null); // Clear error when user makes changes
     };
 
     const handleSelectChange = (name, value) => {
-        setNewEmployee(prev => ({ ...prev, [name]: value }));
+        setNewEmployee(prev => ({
+            ...prev,
+            [name]: value
+        }));
+        setError(null); // Clear error when user makes changes
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (currentSlide === 2) {
-            onAddEmployee(newEmployee);
-            onClose();
+        setError(null);
+        
+       
+        try {
+            setLoading(true);
+            await onAddEmployee(newEmployee);
+            setNewEmployee({
+                password: '',
+                name: '',
+                email: '',
+                department: '',
+                position: '',
+                salary: '',
+                bankAccountNumber: '',
+                bankName: '',
+                taxId: '',
+                employmentType: 'FULL_TIME',
+                dateOfJoining: '',
+                phone: '',
+                gender: ''
+            });
+            handleClose();
+            toast.success('Employee created successfully');
+        } catch (err) {
+            const errorMessage = err.response?.data?.error;
+            setError(
+                errorMessage || 
+                'Failed to create employee. Please try again.'
+            );
+
+            // Highlight the problematic field based on the error
+            if (errorMessage?.includes('email')) {
+                document.querySelector('[name="email"]')?.focus();
+            } else if (errorMessage?.includes('Employee ID')) {
+                document.querySelector('[name="employeeId"]')?.focus();
+            } else if (errorMessage?.includes('phone')) {
+                document.querySelector('[name="phone"]')?.focus();
+            } else if (errorMessage?.includes('bank account')) {
+                document.querySelector('[name="bankAccountNumber"]')?.focus();
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleNext = () => {
-        setCurrentSlide(2);
+        setError(null);
+        if (validateFirstSlide()) {
+            setCurrentSlide(2);
+        }
     };
 
     const handleBack = () => {
+        setError(null);
         setCurrentSlide(1);
     };
 
+    const handleClose = () => {
+        setError(null);
+        setCurrentSlide(1);
+        setNewEmployee({
+            password: '',
+            name: '',
+            email: '',
+            department: '',
+            position: '',
+            salary: '',
+            bankAccountNumber: '',
+            bankName: '',
+            taxId: '',
+            employmentType: 'FULL_TIME',
+            dateOfJoining: '',
+            phone: '',
+            gender: ''
+        });
+        onClose();
+    };
+
     return (
-        <Dialog open={isOpen} onOpenChange={(isOpen) => {
-            // Only close the modal when explicitly triggered by a button or other action
-            if (!isOpen) {
-                onClose();
-            }
-        }}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto p-6" onInteractOutside={(e) => {
-                // Prevent closing when clicking outside the modal
-                e.preventDefault();
-            }}>
+        <Dialog open={isOpen} onOpenChange={handleClose}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto p-6">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-semibold mb-4">Add New Employee</DialogTitle>
                 </DialogHeader>
+
+                {error && (
+                    <Alert variant="destructive" className="mb-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                            <div className="font-medium">Error:</div>
+                            <div>{error}</div>
+                        </AlertDescription>
+                    </Alert>
+                )}
 
                 {/* Progress Indicator */}
                 <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
@@ -101,18 +193,10 @@ export const AddEmployeeModal = ({ isOpen, onClose, onAddEmployee }) => {
                                     <div className="space-y-4 flex-grow">
                                         <div className="flex gap-4">
                                             <Input
-                                                placeholder="First Name"
+                                                placeholder="Name"
                                                 className="flex-1"
-                                                name="firstName"
-                                                value={newEmployee.firstName}
-                                                onChange={handleInputChange}
-                                                required
-                                            />
-                                            <Input
-                                                placeholder="Last Name"
-                                                className="flex-1"
-                                                name="lastName"
-                                                value={newEmployee.lastName}
+                                                name="name"
+                                                value={newEmployee.name}
                                                 onChange={handleInputChange}
                                                 required
                                             />
@@ -149,10 +233,14 @@ export const AddEmployeeModal = ({ isOpen, onClose, onAddEmployee }) => {
 
                                 {/* Navigation Buttons */}
                                 <div className="flex justify-end gap-4 pt-6 border-t">
-                                    <Button variant="outline" onClick={onClose}>
+                                    <Button type="button" variant="outline" onClick={handleClose}>
                                         Cancel
                                     </Button>
-                                    <Button type="button" onClick={handleNext}>
+                                    <Button 
+                                        type="button" 
+                                        onClick={handleNext}
+                                        disabled={loading}
+                                    >
                                         Next <ChevronRight className="ml-2 h-4 w-4" />
                                     </Button>
                                 </div>
@@ -170,11 +258,14 @@ export const AddEmployeeModal = ({ isOpen, onClose, onAddEmployee }) => {
 
                                 {/* Navigation Buttons */}
                                 <div className="flex justify-end gap-4 pt-6 border-t">
-                                    <Button variant="outline" onClick={handleBack}>
+                                    <Button type="button" variant="outline" onClick={handleBack}>
                                         <ChevronLeft className="mr-2 h-4 w-4" /> Back
                                     </Button>
-                                    <Button type="submit">
-                                        Add Employee
+                                    <Button 
+                                        type="submit"
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Creating...' : 'Add Employee'}
                                     </Button>
                                 </div>
                             </>

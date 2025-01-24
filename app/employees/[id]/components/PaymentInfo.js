@@ -19,7 +19,7 @@ export function PaymentInfo({ employee, isEditing, onInputChange }) {
                     {isEditing ? (
                         <Select
                             name="paymentMode"
-                            value={employee.paymentMode}
+                            value={employee.employeeDetails?.paymentMode}
                             onValueChange={handleSelectChange}
                         >
                             <SelectTrigger id="paymentMode">
@@ -27,25 +27,26 @@ export function PaymentInfo({ employee, isEditing, onInputChange }) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="bank">Bank Transfer</SelectItem>
-                                <SelectItem value="cash">Cash</SelectItem>
-                                <SelectItem value="cheque">Cheque</SelectItem>
+                                <SelectItem value="upi">UPI</SelectItem>
                             </SelectContent>
                         </Select>
                     ) : (
-                        <p className="text-sm text-gray-700">{employee.paymentMode}</p>
+                        <p className="text-sm text-gray-700">{employee.employeeDetails?.paymentMode}</p>
                     )}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="accountNumber">Account Number</Label>
+                    <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
                     {isEditing ? (
                         <Input
-                            id="accountNumber"
-                            name="accountNumber"
-                            value={employee.accountNumber}
+                            id="bankAccountNumber"
+                            name="bankAccountNumber"
+                            value={employee.employeeDetails?.bankAccountNumber}
                             onChange={onInputChange}
                         />
                     ) : (
-                        <p className="text-sm text-gray-700">XXXX{employee.accountNumber?.slice(-4)}</p>
+                        <p className="text-sm text-gray-700">
+                            XXXX{employee.employeeDetails?.bankAccountNumber?.slice(-4)}
+                        </p>
                     )}
                 </div>
                 <div className="space-y-2">
@@ -54,40 +55,42 @@ export function PaymentInfo({ employee, isEditing, onInputChange }) {
                         <Input
                             id="bankName"
                             name="bankName"
-                            value={employee.bankName}
+                            value={employee.employeeDetails?.bankName}
                             onChange={onInputChange}
                         />
                     ) : (
-                        <p className="text-sm text-gray-700">{employee.bankName}</p>
+                        <p className="text-sm text-gray-700">{employee.employeeDetails?.bankName}</p>
                     )}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="ifsc">IFSC</Label>
+                    <Label htmlFor="salary">Salary</Label>
                     {isEditing ? (
                         <Input
-                            id="ifsc"
-                            name="ifsc"
-                            value={employee.ifsc}
-                            onChange={onInputChange}
-                        />
-                    ) : (
-                        <p className="text-sm text-gray-700">{employee.ifsc}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="baseSalary">Base Salary</Label>
-                    {isEditing ? (
-                        <Input
-                            id="baseSalary"
-                            name="baseSalary"
+                            id="salary"
+                            name="salary"
                             type="number"
-                            value={employee.baseSalary}
+                            value={employee.employeeDetails?.salary}
                             onChange={onInputChange}
                         />
                     ) : (
                         <p className="text-sm text-gray-700">
-                            {employee?.baseSalary != null ? Number(employee.baseSalary).toFixed(2) : "0.00"}
+                            {employee.employeeDetails?.salary != null 
+                                ? Number(employee.employeeDetails.salary).toFixed(2) 
+                                : "0.00"}
                         </p>
+                    )}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="taxId">Tax ID</Label>
+                    {isEditing ? (
+                        <Input
+                            id="taxId"
+                            name="taxId"
+                            value={employee.employeeDetails?.taxId}
+                            onChange={onInputChange}
+                        />
+                    ) : (
+                        <p className="text-sm text-gray-700">{employee.employeeDetails?.taxId}</p>
                     )}
                 </div>
             </CardContent>

@@ -1,90 +1,110 @@
-import { prisma } from '/lib/db'; // Import Prisma Client
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getAttendanceByDate } from '@/services/attendanceService'
 
-export async function POST(req) {
-  try {
-    const { employeeId, status, date } = await req.json();
-    
-    // Convert date string to Date object
-    const formattedDate = new Date(date);
-    
-    const attendance = await prisma.attendance.upsert({
-      where: {
-        employeeId_date: {
-          employeeId: employeeId,
-          date: formattedDate
+const VALID_STATUSES = new Set(['PRESENT', 'ABSENT', 'ON_LEAVE', 'UNMARKED']);
+
+export async function POST(request) {
+    try {
+        // Auth check
+        const session = await getServerSession(authOptions);
+        if (!session || session.user.role !== 'ADMIN') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-      },
-      update: { 
-        status: status,
-        updatedAt: new Date() // Add this to force update
-      },
-      create: {
-        employeeId: employeeId,
-        status: status,
-        date: formattedDate
-      },
-      select: {
-        id: true,
-        status: true,
-        date: true,
-        employeeId: true
-      }
-    });
 
-    return Response.json(attendance);
-  } catch (error) {
-    console.error('Attendance update error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+        const { employeeId, status, date } = await request.json();
+
+        // Fast validation using Set
+        const normalizedStatus = status.toUpperCase();
+        if (!VALID_STATUSES.has(normalizedStatus)) {
+            return NextResponse.json(
+                { error: 'Invalid attendance status' },
+                { status: 400 }
+            );
+        }
+
+        // Optimize date handling
+        const attendanceDate = new Date(date);
+        attendanceDate.setHours(0, 0, 0, 0);
+
+        // Single efficient query with transaction
+        const result = await prisma.$transaction(async (tx) => {
+            // Update attendance
+            const attendance = await tx.attendance.upsert({
+                where: {
+                    employeeId_date: {
+                        employeeId,
+                        date: attendanceDate
+                    }
+                },
+                update: {
+                    status: normalizedStatus
+                },
+                create: {
+                    employeeId,
+                    date: attendanceDate,
+                    status: normalizedStatus
+                }
+            });
+
+            // Get updated counts for the month
+            const startOfMonth = new Date(attendanceDate.getFullYear(), attendanceDate.getMonth(), 1);
+            const endOfMonth = new Date(attendanceDate.getFullYear(), attendanceDate.getMonth() + 1, 0);
+
+            const presentDays = await tx.attendance.count({
+                where: {
+                    employeeId,
+                    status: 'PRESENT',
+                    date: {
+                        gte: startOfMonth,
+                        lte: endOfMonth
+                    }
+                }
+            });
+
+            return {
+                attendance,
+                presentDays
+            };
+        });
+
+        return NextResponse.json({
+            success: true,
+            ...result
+        });
+
+    } catch (error) {
+        console.error('Attendance error:', error);
+        return NextResponse.json(
+            { error: 'Failed to update attendance' },
+            { status: 500 }
+        );
+    }
 }
 
-export async function GET(req) {
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const skip = (page - 1) * limit;
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
+    
+    const attendance = await getAttendanceByDate(date);
+    
+    // Set cache headers
+    const headers = {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200'
+    };
 
-    const attendance = await prisma.attendance.findMany({
-      take: limit,
-      skip: skip,
-      where: date ? {
-        date: {
-          equals: new Date(date).toISOString()
-        }
-      } : undefined,
-      orderBy: {
-        date: 'desc'
-      },
-      select: {
-        id: true,
-        employeeId: true,
-        status: true,
-        date: true
-      }
-    });
-
-    const total = await prisma.attendance.count({
-      where: date ? {
-        date: {
-          equals: new Date(date).toISOString()
-        }
-      } : undefined
-    });
-
-    return Response.json({
-      data: attendance,
-      pagination: {
-        total,
-        page,
-        pageSize: limit,
-        totalPages: Math.ceil(total / limit)
-      }
-    });
+    return NextResponse.json(attendance, { headers });
   } catch (error) {
-    console.error('Error fetching attendance records:', error);
-    return Response.json(
+    console.error('Attendance Error:', error);
+    return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
     );

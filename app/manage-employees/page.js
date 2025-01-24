@@ -5,18 +5,19 @@ import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar } from "@/components/ui/calendar";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/components/ui/select';
-import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText } from 'lucide-react';
+} from "@/components/ui/select";
+import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText, ChevronDown } from 'lucide-react';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import CustomCalendar from '../calendar/components/CustomCalendar';
+import AdminCalendar from './components/AdminCalendar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,7 +26,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import LeaveRequests from './leave-requests';
 import { toast } from 'react-hot-toast';
-import AdminCalendar from './components/AdminCalendar';
 
 const formatDateToISO = (date) => {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -33,436 +33,335 @@ const formatDateToISO = (date) => {
         .split("T")[0];
 };
 
+const ATTENDANCE_STATUSES = {
+    PRESENT: { label: 'Present', color: 'bg-green-500 hover:bg-green-600' },
+    ABSENT: { label: 'Absent', color: 'bg-red-500 hover:bg-red-600' },
+    ON_LEAVE: { label: 'On Leave', color: 'bg-yellow-500 hover:bg-yellow-600' },
+    UNMARKED: { label: 'Unmarked', color: 'bg-gray-400 hover:bg-gray-500' }
+};
+
 const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-        case "present":
-            return "bg-green-500";
-        case "absent":
-            return "bg-red-500";
-        case "on leave":
-            return "bg-yellow-500";
-        case "unmarked":
-            return "bg-gray-400";
-        default:
-            return "bg-gray-500";
-    }
+    const statusKey = status?.toUpperCase();
+    return ATTENDANCE_STATUSES[statusKey]?.color || 'bg-gray-500';
 };
 
 const ManageEmployee = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [employees, setEmployees] = useState([]);
     const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEmployees, setSelectedEmployees] = useState([]);
-    const [selectedDates, setSelectedDates] = useState([selectedDate]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState('all');
+    const [newEmployee, setNewEmployee] = useState({
+        employeeCode: '',  // This will be auto-generated
+        password: '',
+        name: '',
+        email: '',
+        phone: '',
+        gender: '',
+        dateOfJoining: '',
+        // ... other fields
+    });
 
-    const fetchEmployeesAndPayroll = async () => {
-        setError(null);
-        const formattedDate = formatDateToISO(selectedDate);
-
+    const fetchDashboardData = async () => {
         try {
-            const employeesResponse = await axios.get(`/api/employees`);
-            const allEmployees = employeesResponse.data;
-
-            const attendanceResponse = await axios.get(`/api/attendance/${formattedDate}`);
-            let todaysAttendance = attendanceResponse.data;
-
-            if (!Array.isArray(todaysAttendance)) {
-                console.error('Attendance data is not an array:', todaysAttendance);
-                todaysAttendance = [];
-            }
-
-            const payrollData = await Promise.all(
-                allEmployees.map(async (employee) => {
-                    const payrollResponse = await axios.get(
-                        `/api/payroll?employeeId=${employee.id}&month=${
-                            selectedDate.getMonth() + 1
-                        }&year=${selectedDate.getFullYear()}`
-                    );
-                    return payrollResponse.data;
-                })
-            );
-
-            const mergedData = allEmployees.map((employee, index) => {
-                const attendanceRecord = todaysAttendance.find(
-                    (record) => record.employeeId === employee.id
-                );
-
-                const payroll = payrollData[index];
-
-                return {
-                    ...employee,
-                    status: attendanceRecord ? attendanceRecord.status : "Unmarked",
-                    perDaySalary: payroll.perDaySalary.toFixed(2),
-                    payableAmount: payroll.payableAmount.toFixed(2),
-                    totalDaysPresent: payroll.uniquePresentDays,
-                };
-            });
-
-            setEmployees(mergedData);
+            setLoading(true);
+            setError(null);
+            const response = await axios.get(`/api/admin/dashboard?date=${formatDateToISO(selectedDate)}`);
+            setEmployees(response.data.employees);
         } catch (error) {
-            console.error("Error fetching data:", error);
-            setError("Failed to load data. Please try again.");
+            console.error('Error fetching dashboard data:', error);
+            setError('Failed to load data');
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
-        const fetchData = async () => {
-            await fetchEmployeesAndPayroll();
-        };
-
-        fetchData();
+        fetchDashboardData();
     }, [selectedDate]);
-
-    const handleAddEmployee = async (newEmployee) => {
-        try {
-            await axios.post('/api/employees', newEmployee);
-            await fetchEmployeesAndPayroll();
-        } catch (error) {
-            console.error('Error adding employee:', error);
-            setError('Failed to add employee');
-        }
-    };
 
     const updateAttendanceStatus = async (employeeId, newStatus) => {
         try {
-            const date = formatDateToISO(selectedDate);
+            // Optimistic update
+            setEmployees(prev => prev.map(emp => {
+                if (emp.id === employeeId) {
+                    return { ...emp, status: newStatus };
+                }
+                return emp;
+            }));
+
             await axios.post('/api/attendance', {
                 employeeId,
                 status: newStatus,
-                date,
+                date: formatDateToISO(selectedDate)
             });
 
-            setTimeout(() => {
-                fetchEmployeesAndPayroll();
-            }, 100);
-
+            toast.success('Attendance updated');
+            fetchDashboardData(); // Refresh data in background
         } catch (error) {
-            console.error('Error updating attendance status:', error);
-            setError('Failed to update attendance status');
+            console.error('Error updating attendance:', error);
+            toast.error('Failed to update attendance');
+            fetchDashboardData(); // Revert on error
         }
     };
 
     const markBulkAttendance = async (status) => {
         try {
-            const date = formatDateToISO(selectedDate);
-            const promises = selectedEmployees.map((employeeId) =>
-                axios.post('/api/attendance', { employeeId, status, date })
+            const promises = selectedEmployees.map(employeeId =>
+                axios.post('/api/attendance', {
+                    employeeId,
+                    status,
+                    date: formatDateToISO(selectedDate)
+                })
             );
             await Promise.all(promises);
-
-            await fetchEmployeesAndPayroll();
+            toast.success('Bulk attendance marked successfully');
             setSelectedEmployees([]);
+            fetchDashboardData();
         } catch (error) {
             console.error('Error marking bulk attendance:', error);
-            setError('Failed to mark bulk attendance');
+            toast.error('Failed to mark bulk attendance');
         }
-    };
-
-    const attendanceSummary = {
-        present: employees.filter((e) => e.status.toLowerCase() === "present").length,
-        absent: employees.filter((e) => e.status.toLowerCase() === "absent").length,
-        onLeave: employees.filter((e) => e.status.toLowerCase() === "on leave").length,
-        unmarked: employees.filter((e) => e.status.toLowerCase() === "unmarked").length,
     };
 
     const generatePayslip = async (employee) => {
         try {
-            const response = await axios.post(`/api/payroll/generate-payslip`, {
+            // Get the month name and year for the payslip
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+            const month = monthNames[selectedDate.getMonth()];
+            const year = selectedDate.getFullYear();
+
+            const response = await axios.post('/api/payroll/generate-payslip', {
                 employeeId: employee.id,
                 month: selectedDate.getMonth() + 1,
-                year: selectedDate.getFullYear()
+                year: selectedDate.getFullYear(),
+                payslipData: {
+                    employeeName: employee.name,
+                    employeeId: employee.id,
+                    department: employee.department,
+                    position: employee.position,
+                    month: month,
+                    year: year,
+                    perDaySalary: employee.perDaySalary,
+                    totalDaysPresent: employee.totalDaysPresent,
+                    totalDaysAbsent: employee.totalDaysAbsent || 0,
+                    totalLeaves: employee.totalLeaves || 0,
+                    basicSalary: employee.perDaySalary * employee.totalDaysPresent,
+                    deductions: employee.deductions || 0,
+                    netPayable: employee.payableAmount
+                }
             }, {
                 responseType: 'blob'
             });
 
-            const file = new Blob([response.data], { type: 'application/pdf' });
-            const fileURL = URL.createObjectURL(file);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = fileURL;
-            link.download = `payslip-${employee.firstName}-${employee.lastName}-${selectedDate.getMonth() + 1}-${selectedDate.getFullYear()}.pdf`;
+            link.href = url;
+            link.download = `payslip_${employee.name.replace(/\s+/g, '_')}_${month}_${year}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            URL.revokeObjectURL(fileURL);
+            window.URL.revokeObjectURL(url);
+            toast.success('Payslip generated successfully');
         } catch (error) {
             console.error('Error generating payslip:', error);
             toast.error('Failed to generate payslip');
         }
     };
 
-    const handleDateSelect = (date) => {
-        setSelectedDate(date);
-        setSelectedDates([date]);
+    const filteredEmployees = employees.filter(employee => {
+        const matchesSearch = 
+            employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.department.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesDepartment = selectedDepartment === 'all' || employee.department === selectedDepartment;
+        return matchesSearch && matchesDepartment;
+    });
+
+    const summary = {
+        present: employees.filter(e => e.status.toLowerCase() === 'present').length,
+        absent: employees.filter(e => e.status.toLowerCase() === 'absent').length,
+        onLeave: employees.filter(e => e.status.toLowerCase() === 'on leave').length,
+        unmarked: employees.filter(e => e.status.toLowerCase() === 'unmarked').length,
     };
 
+    if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    if (error) return <div className="flex items-center justify-center min-h-screen text-red-500">{error}</div>;
+
     return (
-        <div className="container mx-auto p-4 sm:p-6">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-blue-900">Employee Attendance</h1>
-            {/* {error && <div className="text-red-500 mb-4">{error}</div>} */}
-            <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-                {/* Attendance List and Summary */}
-                <div className="w-full lg:w-3/4 space-y-4 sm:space-y-6">
-                    {/* Attendance Summary */}
-                    <Card className='rounded-xl shadow-sm border border-gray-100'>
-                        <CardHeader></CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
-                                <div className="p-4 bg-green-50 rounded-lg">
-                                    <p className="text-xl sm:text-2xl font-bold text-green-600">{attendanceSummary.present}</p>
-                                    <p className="text-sm text-gray-600">Present</p>
-                                </div>
-                                <div className="p-4 bg-red-50 rounded-lg">
-                                    <p className="text-xl sm:text-2xl font-bold text-red-600">{attendanceSummary.absent}</p>
-                                    <p className="text-sm text-gray-600">Absent</p>
-                                </div>
-                                <div className="p-4 bg-yellow-50 rounded-lg">
-                                    <p className="text-xl sm:text-2xl font-bold text-yellow-600">{attendanceSummary.onLeave}</p>
-                                    <p className="text-sm text-gray-600">On Leave</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-xl sm:text-2xl font-bold text-gray-600">{attendanceSummary.unmarked}</p>
-                                    <p className="text-sm text-gray-600">Unmarked</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+        <div className="container mx-auto p-6">
+            <h1 className="text-2xl font-bold text-blue-900 mb-6">Employee Attendance</h1>
 
-                    {/* Attendance List */}
-                    <Card className="rounded-xl shadow-sm border border-gray-100">
-                        <CardContent className="p-4">
-                            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 bg-gray-50 rounded-lg p-2">
-                                <div className="flex-1 flex flex-col sm:flex-row items-center gap-2 w-full">
-                                    <Select>
-                                        <SelectTrigger className="w-full sm:w-[120px] bg-white">
-                                            <SelectValue placeholder="Columns" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Columns</SelectItem>
-                                            <SelectItem value="basic">Basic Info</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select>
-                                        <SelectTrigger className="w-full sm:w-[120px] bg-white">
-                                            <SelectValue placeholder="Department" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Departments</SelectItem>
-                                            <SelectItem value="product">Product</SelectItem>
-                                            <SelectItem value="engineering">Engineering</SelectItem>
-                                            <SelectItem value="hr">HR</SelectItem>
-                                            <SelectItem value="marketing">Marketing</SelectItem>
-                                            <SelectItem value="finance">Finance</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex-1 relative rounded-full w-full">
-                                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input placeholder="Search" className="pl-8 w-full bg-white" />
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    <Button className="rounded-full w-full sm:w-auto bg-white hover:bg-gray-100" variant="secondary" size="icon">
-                                        <SlidersHorizontal className="h-4 w-4" />
-                                    </Button>
-                                    <Button className="rounded-full w-full sm:w-auto bg-white hover:bg-gray-100" variant="secondary" size="icon">
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>   
+            {/* Summary Cards */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-green-600">{summary.present}</div>
+                    <div className="text-sm text-gray-600">Present</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-red-600">{summary.absent}</div>
+                    <div className="text-sm text-gray-600">Absent</div>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-yellow-600">{summary.onLeave}</div>
+                    <div className="text-sm text-gray-600">On Leave</div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="text-3xl font-bold text-gray-600">{summary.unmarked}</div>
+                    <div className="text-sm text-gray-600">Unmarked</div>
+                </div>
+            </div>
 
-                            {error && <div className="text-red-500 mb-4">{error}</div>}
-                            <div className="mt-5">
-                                {/* Table Header */}
-                                <div className="hidden sm:flex items-center bg-gray-50 rounded-lg p-4">
-                                    <div className="p-4 w-1/12 text-left"></div>
-                                    <div className="p-4 font-medium w-1/5 text-left">Name</div>
-                                    <div className="p-4 font-medium w-1/5 text-left">Position</div>
-                                    <div className="p-4 font-medium w-1/5 text-left">Department</div>
-                                    <div className="p-4 font-medium w-1/5 text-left">Status</div>
-                                    <div className="p-4 font-medium w-1/5 text-left">Payroll Info</div>
-                                </div>
+            <div className="flex gap-6">
+                {/* Main Content */}
+                <div className="flex-1">
+                    {/* Filters */}
+                    <div className="flex gap-4 mb-6">
+                        <Select
+                            value={selectedDepartment}
+                            onValueChange={setSelectedDepartment}
+                        >
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Departments</SelectItem>
+                                <SelectItem value="IT">IT</SelectItem>
+                                <SelectItem value="HR">HR</SelectItem>
+                                <SelectItem value="Finance">Finance</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Input
+                            placeholder="Search employees..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="flex-1"
+                        />
+                    </div>
 
-                                {/* Table Body */}
-                                <div
-                                    className="space-y-2 overflow-y-auto"
-                                    style={{ maxHeight: '300px' }}
-                                >
-                                    {employees.length > 0 ? (
-                                        employees.map((employee) => (
-                                            <Card
-                                                key={employee.id}
-                                                className="hover:shadow-md transition-shadow duration-300"
+                    {/* Employee Table */}
+                    <div className="bg-white rounded-lg shadow">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payroll Info</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {filteredEmployees.map((employee) => (
+                                    <tr key={employee.id}>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center">
+                                                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center mr-3">
+                                                    <span className="text-sm font-medium">{employee.name.charAt(0)}</span>
+                                                </div>
+                                                <Link
+                                                    href={`/employees/${employee.id}`}
+                                                    className="font-medium hover:underline"
+                                                >
+                                                    {employee.name}
+                                                </Link>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">{employee.position}</td>
+                                        <td className="px-6 py-4">{employee.department}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="p-4 w-full sm:w-1/5">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            className={`w-full justify-between ${getStatusColor(employee.status)}`}
+                                                            variant="ghost"
+                                                        >
+                                                            <span className="text-white">
+                                                                {ATTENDANCE_STATUSES[employee.status?.toUpperCase()]?.label || 'Unmarked'}
+                                                            </span>
+                                                            <ChevronDown className="h-4 w-4 text-white opacity-50" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-[160px]">
+                                                        {Object.entries(ATTENDANCE_STATUSES).map(([status, { label, color }]) => (
+                                                            <DropdownMenuItem
+                                                                key={status}
+                                                                onClick={() => updateAttendanceStatus(employee.id, status)}
+                                                                className={`${color} text-white focus:text-white focus:bg-opacity-80`}
+                                                            >
+                                                                {label}
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div>
+                                                <div className="text-sm text-gray-500">Per day: Rs.{employee.perDaySalary}</div>
+                                                <div className="text-sm text-gray-500">Total days: {employee.totalDaysPresent}</div>
+                                                <div className="text-sm font-medium">Payable: Rs.{employee.payableAmount}</div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => generatePayslip(employee)}
                                             >
-                                                <CardContent className="p-4">
-                                                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                                                        <div className="p-4 w-full sm:w-1/5 flex items-center gap-3">
-                                                            <Avatar>
-                                                                <AvatarImage
-                                                                    src="/placeholder.svg?height=40&width=40"
-                                                                    alt={`${employee.firstName} ${employee.lastName}`}
-                                                                />
-                                                                <AvatarFallback>
-                                                                    {employee.firstName[0]}{employee.lastName[0]}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
-                                                                <div>
-                                                                    <Link
-                                                                        href={`/employees/${employee.id}`}
-                                                                        className="font-medium hover:underline"
-                                                                    >
-                                                                        {employee.firstName} {employee.lastName}
-                                                                    </Link>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-4 w-full sm:w-1/5">{employee.position}</div>
-                                                        <div className="p-4 w-full sm:w-1/5">{employee.department}</div>
-                                                        <div className="p-4 w-full sm:w-1/5">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button
-                                                                        className={`rounded-full hover:bg-opacity-80 text-white w-full sm:w-28 ${getStatusColor(employee.status)}`}
-                                                                    >
-                                                                        {employee.status}
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent 
-                                                                    align="center" 
-                                                                    className="w-28 p-0 bg-transparent border-none shadow-none"
-                                                                    sideOffset={5}
-                                                                >
-                                                                    <div className={`rounded-2xl overflow-hidden shadow-lg ${getStatusColor(employee.status)}`}>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => updateAttendanceStatus(employee.id, 'present')}
-                                                                            className="justify-center text-white hover:bg-green-600 focus:bg-green-600 focus:text-white"
-                                                                        >
-                                                                            Present
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => updateAttendanceStatus(employee.id, 'absent')}
-                                                                            className="justify-center text-white hover:bg-red-600 focus:bg-red-600 focus:text-white"
-                                                                        >
-                                                                            Absent
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => updateAttendanceStatus(employee.id, 'On Leave')}
-                                                                            className="justify-center text-white hover:bg-yellow-600 focus:bg-yellow-600 focus:text-white"
-                                                                        >
-                                                                            On Leave
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => updateAttendanceStatus(employee.id, 'unmarked')}
-                                                                            className="justify-center text-white hover:bg-gray-600 focus:bg-gray-600 focus:text-white"
-                                                                        >
-                                                                            Unmarked
-                                                                        </DropdownMenuItem>
-                                                                    </div>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </div>
-                                                        <div className="p-4 w-full sm:w-1/5">
-                                                            <Card className="bg-gray-50">
-                                                                <CardContent className="p-3">
-                                                                    <div className="flex justify-between items-center mb-2">
-                                                                        <span className="text-sm text-gray-600">Per day:</span>
-                                                                        <span className="font-medium">Rs.{employee.perDaySalary}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between items-center mb-2">
-                                                                        <span className="text-sm text-gray-600">Total days:</span>
-                                                                        <span className="font-medium">{employee.totalDaysPresent}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between items-center mb-2">
-                                                                        <span className="text-sm text-gray-600">Payable:</span>
-                                                                        <span className="font-medium text-green-600">Rs.{employee.payableAmount}</span>
-                                                                    </div>
-                                                                    <Button 
-                                                                        variant="outline" 
-                                                                        size="sm" 
-                                                                        className="w-full mt-2"
-                                                                        onClick={() => generatePayslip(employee)}
-                                                                    >
-                                                                        <FileText className="h-4 w-4 mr-2" />
-                                                                        Generate Payslip
-                                                                    </Button>
-                                                                </CardContent>
-                                                            </Card>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        ))
-                                    ) : (
-                                        <div className="p-4 text-center text-gray-500">No employees found.</div>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                                <FileText className="h-4 w-4" />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                {/* Calendar and Actions Column */}
-                <div className="w-full lg:w-1/4 space-y-4 sm:space-y-6">
-                    {/* Calendar Card */}
-                    <Card className="rounded-xl shadow-sm border border-gray-100">
-                        <CardHeader>
-                            <CardTitle className='font-thin text-blue-900'>
-                                {formatDateToISO(selectedDate)}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="w-full">
-                            <AdminCalendar 
-                                selected={selectedDate}
-                                onSelect={(date) => {
-                                    if (date) {
-                                        setSelectedDate(date);
-                                        setSelectedDates([date]);
-                                    }
-                                }}
-                            />
-                            {selectedEmployees.length > 0 && (
-                                <>
-                                    <Button
-                                        className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                                        onClick={() => markBulkAttendance('present')}
-                                    >
-                                        <UserCheck className="h-4 w-4 mr-2" />
-                                        Mark Present
-                                    </Button>
-                                    <Button
-                                        className="w-full mt-2 bg-red-600 hover:bg-red-700"
-                                        onClick={() => markBulkAttendance('absent')}
-                                    >
-                                        <UserX className="h-4 w-4 mr-2" />
-                                        Mark Absent
-                                    </Button>
-                                    <Button
-                                        className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700"
-                                        onClick={() => markBulkAttendance('On Leave')}
-                                    >
-                                        <UserX className="h-4 w-4 mr-2" />
-                                        On Leave
-                                    </Button>
-                                </>
-                            )}
-                            <Button 
-                                className="w-full mt-4 bg-blue-600 hover:bg-blue-700" 
-                                onClick={() => setIsModalOpen(true)}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Employee
-                            </Button>
-                        </CardContent>
-                    </Card>
+                {/* Sidebar */}
+                <div className="w-80">
+                    <div className="bg-white p-4 rounded-lg shadow mb-6">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            className="rounded-md border"
+                        />
+                    </div>
+                    <Button 
+                        className="w-full mb-6"
+                        onClick={() => setIsModalOpen(true)}
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Employee
+                    </Button>
 
-                    {/* Leave Requests */}
+                    {/* Leave Requests Component */}
                     <LeaveRequests />
                 </div>
             </div>
+
             <AddEmployeeModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onAddEmployee={handleAddEmployee}
+                onAddEmployee={async (newEmployee) => {
+                    try {
+                        await axios.post('/api/employees', newEmployee);
+                        await fetchDashboardData();
+                        setIsModalOpen(false);
+                        toast.success('Employee added successfully');
+                    } catch (error) {
+                        toast.error('Failed to add employee');
+                    }
+                }}
             />
         </div>
     );

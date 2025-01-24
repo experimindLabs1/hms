@@ -1,87 +1,58 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { verifyToken } from '@/utils/auth';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function POST(request) {
     try {
-        const token = request.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
+        const session = await getServerSession(authOptions);
+        if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const tokenData = await verifyToken(token);
-        if (!tokenData) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-        }
+        const data = await request.json();
+        const { reason, leaveType, dates } = data;
 
-        const body = await request.json();
-        const { selectedDates, reason } = body;
-
-        console.log('Received request:', { selectedDates, reason });
-
-        // Find the employee using id instead of email
-        const employee = await prisma.employee.findUnique({
-            where: { id: tokenData.id }
-        });
-
-        if (!employee) {
-            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-        }
-
-        console.log('Found employee:', employee);
-
-        // Create leave request with explicit dates
+        // Create leave request with dates
         const leaveRequest = await prisma.leaveRequest.create({
             data: {
-                employeeId: employee.id,
-                reason: reason,
-                status: 'PENDING',
+                employeeId: session.user.id,
+                reason,
+                leaveType,
                 leaveDates: {
-                    create: selectedDates.map(date => ({ 
+                    create: dates.map(date => ({
                         date: new Date(date)
                     }))
                 }
             },
             include: {
-                leaveDates: true,
-                employee: true
+                leaveDates: true
             }
         });
 
-        console.log('Created leave request:', leaveRequest);
         return NextResponse.json(leaveRequest);
-
     } catch (error) {
         console.error('Error creating leave request:', error);
-        return NextResponse.json({ 
-            error: 'Internal server error', 
-            details: error.message 
-        }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to create leave request' },
+            { status: 500 }
+        );
     }
 }
 
 export async function GET(request) {
     try {
-        const token = request.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
+        const session = await getServerSession(authOptions);
+        if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const tokenData = await verifyToken(token);
-        if (!tokenData) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
         const leaveRequests = await prisma.leaveRequest.findMany({
             where: {
-                employeeId: tokenData.id
+                employeeId: session.user.id
             },
             include: {
-                leaveDates: {
-                    select: {
-                        date: true
-                    }
-                }
+                leaveDates: true
             },
             orderBy: {
                 createdAt: 'desc'
@@ -89,12 +60,11 @@ export async function GET(request) {
         });
 
         return NextResponse.json(leaveRequests);
-
     } catch (error) {
         console.error('Error fetching leave requests:', error);
-        return NextResponse.json({ 
-            error: 'Internal server error', 
-            details: error.message 
-        }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to fetch leave requests' },
+            { status: 500 }
+        );
     }
 } 

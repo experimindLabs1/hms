@@ -6,10 +6,12 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EmployeeHeader } from './components/EmployeeHeader'
 import { BasicInfo } from './components/BasicInfo'
 import { PersonalInfo } from './components/PersonalInfo'
 import { PaymentInfo } from './components/PaymentInfo'
+import { LeaveHistory } from './components/LeaveHistory'
 
 export default function EmployeePage() {
     const [employee, setEmployee] = useState(null)
@@ -117,28 +119,48 @@ export default function EmployeePage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <EmployeeHeader 
-                    employee={isEditing ? editedEmployee : employee} 
-                    isEditing={isEditing}
-                    onInputChange={handleInputChange}
-                />
-                <BasicInfo 
-                    employee={isEditing ? editedEmployee : employee} 
-                    isEditing={isEditing}
-                    onInputChange={handleInputChange}
-                />
-                <PersonalInfo 
-                    employee={isEditing ? editedEmployee : employee} 
-                    isEditing={isEditing}
-                    onInputChange={handleInputChange}
-                />
-                <PaymentInfo 
-                    employee={isEditing ? editedEmployee : employee} 
-                    isEditing={isEditing}
-                    onInputChange={handleInputChange}
-                />
-            </div>
+            <EmployeeHeader 
+                employee={isEditing ? editedEmployee : employee} 
+                isEditing={isEditing}
+                onInputChange={handleInputChange}
+            />
+
+            <Tabs defaultValue="basic" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-4 lg:w-1/2">
+                    <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                    <TabsTrigger value="personal">Personal Info</TabsTrigger>
+                    <TabsTrigger value="payment">Payment Info</TabsTrigger>
+                    <TabsTrigger value="leave">Leave History</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic">
+                    <BasicInfo 
+                        employee={isEditing ? editedEmployee : employee} 
+                        isEditing={isEditing}
+                        onInputChange={handleInputChange}
+                    />
+                </TabsContent>
+
+                <TabsContent value="personal">
+                    <PersonalInfo 
+                        employee={isEditing ? editedEmployee : employee} 
+                        isEditing={isEditing}
+                        onInputChange={handleInputChange}
+                    />
+                </TabsContent>
+
+                <TabsContent value="payment">
+                    <PaymentInfo 
+                        employee={isEditing ? editedEmployee : employee} 
+                        isEditing={isEditing}
+                        onInputChange={handleInputChange}
+                    />
+                </TabsContent>
+
+                <TabsContent value="leave">
+                    <LeaveHistory employeeId={params.id} />
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

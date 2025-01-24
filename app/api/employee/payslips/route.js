@@ -1,69 +1,57 @@
+import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import jwt from 'jsonwebtoken';
-
-export const dynamic = 'force-dynamic'
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(request) {
     try {
+        const session = await getServerSession(authOptions);
+        
+        if (!session) {
+            console.log('No session found');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        console.log('Session user:', session.user); // Debug log
+
+        // Get query parameters
         const { searchParams } = new URL(request.url);
-        const month = parseInt(searchParams.get('month'), 10);
-        const year = parseInt(searchParams.get('year'), 10);
+        const month = searchParams.get('month') ? parseInt(searchParams.get('month')) : new Date().getMonth() + 1;
+        const year = searchParams.get('year') ? parseInt(searchParams.get('year')) : new Date().getFullYear();
 
-        const token = request.headers.get('Authorization')?.split(' ')[1];
-        if (!token) {
-            console.error('No token provided');
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-        }
+        console.log('Fetching payslips for:', { month, year, userId: session.user.id }); // Debug log
 
-        let decoded;
-        try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
-        } catch (error) {
-            console.error('Token verification failed:', error);
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-        }
-
-        const employeeId = decoded.id;
-
-        // Fetch employee data with attendance for the specified month
-        const employee = await prisma.employee.findUnique({
-            where: { id: employeeId },
-            include: {
-                attendance: {
-                    where: {
-                        AND: [
-                            { date: { gte: new Date(year, month - 1, 1) } },
-                            { date: { lt: new Date(year, month, 1) } }
-                        ]
-                    }
-                }
+        const payslips = await prisma.payslip.findMany({
+            where: {
+                employeeId: session.user.id,
+                month: month,
+                year: year
+            },
+            select: {
+                id: true,
+                month: true,
+                year: true,
+                basicSalary: true,
+                grossEarnings: true,
+                totalDeductions: true,
+                netPayable: true,
+                paidDays: true,
+                lopDays: true,
+                payDate: true
+            },
+            orderBy: {
+                payDate: 'desc'
             }
         });
 
-        if (!employee) {
-            return new Response(JSON.stringify({ error: 'Employee not found' }), { status: 404 });
-        }
-
-        // Calculate payslip details
-        const presentDays = employee.attendance.filter(a => a.status.toLowerCase() === 'present').length;
-        const daysInMonth = new Date(year, month, 0).getDate();
-        const perDaySalary = employee.baseSalary / daysInMonth;
-        const payableAmount = perDaySalary * presentDays;
-
-        const payslipData = {
-            id: `${year}-${month}-${employeeId}`,
-            month: new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' }),
-            amount: payableAmount,
-            date: new Date(year, month - 1, 1).toISOString(),
-            baseSalary: employee.baseSalary,
-            perDaySalary: perDaySalary,
-            presentDays: presentDays,
-            daysInMonth: daysInMonth
-        };
-
-        return new Response(JSON.stringify(payslipData), { status: 200 });
+        console.log('Found payslips:', payslips); // Debug log
+        return NextResponse.json(payslips);
+        
     } catch (error) {
-        console.error('Error fetching payslip:', error);
-        return new Response(JSON.stringify({ error: 'Failed to fetch payslip data' }), { status: 500 });
+        console.error('Error fetching payslips:', error);
+        return NextResponse.json(
+            { error: 'Failed to fetch payslips: ' + error.message },
+            { status: 500 }
+        );
     }
 } 

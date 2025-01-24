@@ -8,14 +8,19 @@ import { format, addDays, differenceInDays, isBefore } from "date-fns";
 import axios from 'axios';
 import { Badge } from "@/components/ui/badge";
 import CustomCalendar from '@/app/calendar/components/CustomCalendar';
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 export default function LeaveRequest() {
     const [selectedDates, setSelectedDates] = useState([]);
+    const [leaveType, setLeaveType] = useState('');
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [leaveRequests, setLeaveRequests] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         console.log('Fetching leave requests...');
@@ -88,58 +93,53 @@ export default function LeaveRequest() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Starting leave request submission...');
-        console.log('Selected dates:', selectedDates);
-        console.log('Reason:', reason);
-
+        
+        // Validate form
+        if (!leaveType) {
+            toast.error('Please select a leave type');
+            return;
+        }
         if (selectedDates.length === 0) {
-            console.error('No dates selected');
-            setError('Please select leave dates');
+            toast.error('Please select at least one date');
+            return;
+        }
+        if (!reason.trim()) {
+            toast.error('Please enter a reason for leave');
             return;
         }
 
-        setLoading(true);
-        setError('');
-        setSuccess('');
-
+        setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('token');
-            console.log('Token retrieved:', token ? 'Present' : 'Missing');
-
-            // Format dates to YYYY-MM-DD to avoid timezone issues
-            const formattedDates = selectedDates.map(date => {
-                const formatted = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-                    .toISOString()
-                    .split('T')[0];
-                console.log('Formatted date:', formatted);
-                return formatted;
-            });
-
-            console.log('Sending request with data:', {
-                selectedDates: formattedDates,
-                reason
-            });
-
-            const response = await axios.post('/api/employee/leave-request', {
-                selectedDates: formattedDates,
-                reason
-            }, {
+            const response = await fetch('/api/employee/leave-request', {
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    leaveType,
+                    reason,
+                    dates: selectedDates
+                }),
             });
 
-            console.log('Leave request response:', response.data);
-            setSuccess('Leave request submitted successfully');
+            if (!response.ok) {
+                throw new Error('Failed to submit leave request');
+            }
+
+            toast.success('Leave request submitted successfully');
+            
+            // Reset form
             setSelectedDates([]);
+            setLeaveType('');
             setReason('');
+            
+            // Refresh leave requests
             fetchLeaveRequests();
         } catch (error) {
-            console.error('Leave request error:', error);
-            console.error('Error response:', error.response?.data);
-            setError(error.response?.data?.error || 'Failed to submit leave request');
+            console.error('Error:', error);
+            toast.error('Failed to submit leave request');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -168,54 +168,54 @@ export default function LeaveRequest() {
                     <CardTitle>Request Leave</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Select Leave Dates 
-                                <span className="text-gray-500 ml-1">
-                                    (3 days notice required, max 3 consecutive days)
-                                </span>
-                            </label>
-                            <div className="border rounded-md p-4">
-                                <CustomCalendar
-                                    selectedDate={selectedDates[selectedDates.length - 1] || new Date()}
-                                    onSelectDate={handleDateSelect}
-                                />
-                            </div>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Leave Type</label>
+                            <Select value={leaveType} onValueChange={setLeaveType}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select leave type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ANNUAL">Annual Leave</SelectItem>
+                                    <SelectItem value="SICK">Sick Leave</SelectItem>
+                                    <SelectItem value="UNPAID">Unpaid Leave</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Select Dates</label>
+                            <CustomCalendar
+                                selectedDates={selectedDates}
+                                onSelectDate={handleDateSelect}
+                            />
                             {selectedDates.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                    <p className="text-sm font-medium text-gray-700">
-                                        Selected dates ({selectedDates.length} days):
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        {selectedDates
-                                            .sort((a, b) => a - b)
-                                            .map(date => format(date, 'MMM dd, yyyy'))
-                                            .join(', ')}
-                                    </p>
+                                <div className="mt-2 text-sm text-gray-600">
+                                    Selected dates: {selectedDates.map(date => 
+                                        format(date, 'MMM dd, yyyy')
+                                    ).join(', ')}
                                 </div>
                             )}
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Reason for Leave</label>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Reason</label>
                             <Textarea
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}
-                                placeholder="Please explain your reason for leave..."
+                                placeholder="Enter your reason for leave"
                                 className="min-h-[100px]"
-                                required
                             />
                         </div>
-                        {error && <p className="text-red-500 text-sm">{error}</p>}
-                        {success && <p className="text-green-500 text-sm">{success}</p>}
+
                         <Button 
-                            type="submit" 
-                            disabled={loading || selectedDates.length === 0 || !reason}
+                            onClick={handleSubmit}
                             className="w-full"
+                            disabled={isSubmitting}
                         >
-                            {loading ? 'Submitting...' : 'Submit Leave Request'}
+                            {isSubmitting ? 'Submitting...' : 'Submit Request'}
                         </Button>
-                    </form>
+                    </div>
                 </CardContent>
             </Card>
 

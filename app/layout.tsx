@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { NextUIProvider } from "@nextui-org/react";
 import { Navbar } from "./components/Navbar"
 import { Toaster } from "sonner";
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Providers } from './providers'
+
 
 
 // Import custom fonts
@@ -37,14 +38,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <NextUIProvider>
           <main>
             <Navbar />
-            {children}
+            <Providers>{children}</Providers>
             <SpeedInsights />
             <Toaster position="top-right" />
           </main>
-        </NextUIProvider>
       </body>
     </html>
   );

@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, DollarSign, UserCircle, FileText, Settings } from 'lucide-react'
 import LeaveRequest from './leave-request'
+import { useSession } from "next-auth/react"
 
 export default function EmployeeDashboard() {
   const [employee, setEmployee] = useState(null)
@@ -19,68 +20,76 @@ export default function EmployeeDashboard() {
   const [error, setError] = useState(null)
   const router = useRouter()
   const [payslips, setPayslips] = useState([])
+  const { data: session, status } = useSession()
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
+
+    if (status === "authenticated" && session?.user?.role !== "EMPLOYEE") {
+      router.push("/")
+      return
+    }
+  }, [status, session, router])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                console.log('No token found in localStorage');
-                router.push('/login');
-                return;
+      if (!session?.user?.id) return;
+      
+      try {
+        setLoading(true)
+        
+        // Get employee profile
+        const employeeResponse = await axios.get('/api/employee/profile', {
+          headers: {
+            'Authorization': `Bearer ${session?.user?.accessToken}`
+          }
+        })
+        setEmployee(employeeResponse.data)
+
+        const currentDate = new Date()
+        const currentMonth = currentDate.getMonth() + 1
+        const currentYear = currentDate.getFullYear()
+
+        // Get attendance and payroll data
+        const [attendanceResponse, payrollResponse] = await Promise.all([
+          axios.get('/api/employee/attendance', {
+            headers: {
+              'Authorization': `Bearer ${session?.user?.accessToken}`
+            },
+            params: {
+              month: currentMonth,
+              year: currentYear
             }
-
-            const config = {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            };
-
-            // Get employee profile directly first
-            const employeeResponse = await axios.get('/api/employee/profile', config);
-            console.log('Raw Employee Response:', employeeResponse.data);
-            console.log('canAccessPayslip value:', employeeResponse.data.canAccessPayslip);
-            setEmployee(employeeResponse.data);
-
-            const currentDate = new Date();
-            const currentMonth = currentDate.getMonth() + 1;
-            const currentYear = currentDate.getFullYear();
-
-            // Then get attendance and payroll data
-            const [attendanceResponse, payrollResponse] = await Promise.all([
-                axios.get('/api/employee/attendance', {
-                    ...config,
-                    params: {
-                        month: currentMonth,
-                        year: currentYear
-                    }
-                }),
-                axios.get('/api/employee/payroll', {
-                    ...config,
-                    params: {
-                        month: currentMonth,
-                        year: currentYear
-                    }
-                })
-            ]);
-
-            setAttendanceData(attendanceResponse.data);
-            setPayrollData(payrollResponse.data);
-
-        } catch (err) {
-            console.error('Error fetching dashboard data:', err);
-            if (err.response?.status === 401 || err.response?.status === 404) {
-                router.push('/login');
-            } else {
-                setError('Failed to fetch dashboard data');
+          }),
+          axios.get('/api/employee/payroll', {
+            headers: {
+              'Authorization': `Bearer ${session?.user?.accessToken}`
+            },
+            params: {
+              month: currentMonth,
+              year: currentYear
             }
-        } finally {
-            setLoading(false);
-        }
-    };
+          })
+        ])
 
-    fetchDashboardData();
-  }, [router]);
+        setAttendanceData(attendanceResponse.data)
+        setPayrollData(payrollResponse.data)
+        setError(null)
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err)
+        setError('Failed to fetch dashboard data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (session?.user?.id) {
+      fetchDashboardData()
+    }
+  }, [session])
 
   useEffect(() => {
     const fetchPayslips = async () => {
@@ -95,21 +104,20 @@ export default function EmployeeDashboard() {
                 const year = date.getFullYear();
                 
                 const response = await axios.get(`/api/employee/payslips`, {
-                    params: { month, year },
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
+                    params: { month, year }
                 });
                 
-                if (response.data) {
-                    payslipsData.push({
-                        id: response.data.id,
-                        month: response.data.month,
-                        amount: `Rs. ${response.data.amount.toFixed(2)}`,
-                        date: date.toISOString(),
-                        year: year,
-                        monthNum: month,
-                        isApproved: response.data.isApproved
+                // Check if response.data is an array and has items
+                if (response.data && response.data.length > 0) {
+                    response.data.forEach(payslip => {
+                        payslipsData.push({
+                            id: payslip.id,
+                            month: new Date(payslip.payDate).toLocaleString('default', { month: 'long' }),
+                            amount: `Rs. ${payslip.netPayable.toFixed(2)}`,
+                            date: payslip.payDate,
+                            year: payslip.year,
+                            monthNum: payslip.month
+                        });
                     });
                 }
             }
@@ -132,7 +140,7 @@ export default function EmployeeDashboard() {
         }, {
             responseType: 'blob',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${session?.user?.accessToken}`
             }
         });
 
@@ -153,20 +161,37 @@ export default function EmployeeDashboard() {
     }
   };
 
-  if (loading) return (
-    <div className="flex justify-center items-center h-screen">
-      <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
-    </div>
-  )
-  if (error) return <div className="text-red-500 text-center p-4 bg-red-100 rounded-lg m-4">{error}</div>
+  // Split name into first and last name for display
+  const getNameParts = (fullName) => {
+    const parts = fullName ? fullName.split(' ') : ['', ''];
+    return {
+        firstName: parts[0] || '',
+        lastName: parts.slice(1).join(' ') || ''
+    };
+  };
+
+  if (status === "loading" || loading) {
+    return <div className="text-center mt-8">Loading...</div>
+  }
+
+  if (error) {
+    return <div className="text-center mt-8 text-red-500">{error}</div>
+  }
+
   if (!employee) return <div className="text-center p-4 bg-yellow-100 rounded-lg m-4">Employee not found</div>
+
+  const { firstName, lastName } = getNameParts(employee.name);
+
+  if (!session) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <header className="bg-white dark:bg-gray-800 shadow-md">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome, {employee.firstName}!</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome, {firstName}!</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Here&apos;s what&apos;s happening with your account today.</p>
           </div>
           <Button variant="outline" onClick={() => router.push('/settings')}>
@@ -193,12 +218,12 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center space-x-4">
                       <Avatar className="h-20 w-20">
                         <AvatarImage src={employee.avatarUrl || "/placeholder.svg"} />
-                        <AvatarFallback>{employee.firstName[0]}{employee.lastName[0]}</AvatarFallback>
+                        <AvatarFallback>{firstName[0]}{lastName[0]}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-lg">{employee.firstName} {employee.lastName}</h3>
-                        <p className="text-sm text-muted-foreground">{employee.position}</p>
-                        <p className="text-sm text-muted-foreground">{employee.department}</p>
+                        <h3 className="font-semibold text-lg">{firstName} {lastName}</h3>
+                        <p className="text-sm text-muted-foreground">{employee.employeeDetails?.position}</p>
+                        <p className="text-sm text-muted-foreground">{employee.employeeDetails?.department}</p>
                       </div>
                     </div>
                     <div className="mt-4 space-y-2">

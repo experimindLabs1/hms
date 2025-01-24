@@ -16,7 +16,7 @@ export const PaymentInformation = ({ newEmployee, handleInputChange, handleSelec
                     Payment Mode <span className="text-red-500">*</span>
                 </label>
                 <Select
-                    value={newEmployee.paymentMode}
+                    value={newEmployee.paymentMode || ''}
                     onValueChange={(value) => handleSelectChange("paymentMode", value)}
                     required
                 >
@@ -31,24 +31,12 @@ export const PaymentInformation = ({ newEmployee, handleInputChange, handleSelec
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                    Account Number <span className="text-red-500">*</span>
+                    Bank Account Number <span className="text-red-500">*</span>
                 </label>
                 <Input
-                    placeholder="Enter account number"
-                    name="accountNumber"
-                    value={newEmployee.accountNumber}
-                    onChange={handleInputChange}
-                    required
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                    Account Holder Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                    placeholder="Enter account holder name"
-                    name="accountHolderName"
-                    value={newEmployee.accountHolderName}
+                    placeholder="Enter bank account number"
+                    name="bankAccountNumber"
+                    value={newEmployee.bankAccountNumber || ''}
                     onChange={handleInputChange}
                     required
                 />
@@ -60,52 +48,54 @@ export const PaymentInformation = ({ newEmployee, handleInputChange, handleSelec
                 <Input
                     placeholder="Enter bank name"
                     name="bankName"
-                    value={newEmployee.bankName}
+                    value={newEmployee.bankName || ''}
                     onChange={handleInputChange}
                     required
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                    IFSC Code <span className="text-red-500">*</span>
+                    Tax ID <span className="text-red-500">*</span>
                 </label>
                 <Input
-                    placeholder="Enter IFSC code"
-                    name="ifsc"
-                    value={newEmployee.ifsc}
+                    placeholder="Enter tax ID"
+                    name="taxId"
+                    value={newEmployee.taxId || ''}
                     onChange={handleInputChange}
                     required
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                    Account Type <span className="text-red-500">*</span>
+                    Salary <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    type="number"
+                    placeholder="Enter salary"
+                    name="salary"
+                    value={newEmployee.salary || ''}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Employment Type <span className="text-red-500">*</span>
                 </label>
                 <Select
-                    value={newEmployee.accountType}
-                    onValueChange={(value) => handleSelectChange("accountType", value)}
+                    value={newEmployee.employmentType || ''}
+                    onValueChange={(value) => handleSelectChange("employmentType", value)}
                     required
                 >
                     <SelectTrigger>
-                        <SelectValue placeholder="Select account type" />
+                        <SelectValue placeholder="Select employment type" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="savings">Savings</SelectItem>
-                        <SelectItem value="current">Current</SelectItem>
+                        <SelectItem value="FULL_TIME">Full Time</SelectItem>
+                        <SelectItem value="PART_TIME">Part Time</SelectItem>
+                        <SelectItem value="CONTRACT">Contract</SelectItem>
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                    Base Salary <span className="text-red-500">*</span>
-                </label>
-                <Input
-                    placeholder="Enter base salary"
-                    name="baseSalary"
-                    value={newEmployee.baseSalary}
-                    onChange={handleInputChange}
-                    required
-                />
             </div>
         </div>
     </div>

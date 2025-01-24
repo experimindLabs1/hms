@@ -1,52 +1,56 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export function BasicInfo({ employee, isEditing, onInputChange }) {
+    const departments = ['IT', 'HR', 'Finance', 'Marketing', 'Operations', 'Sales']
+
     return (
         <Card>
-            <CardHeader>
-                <CardTitle className="text-xl">Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    {isEditing ? (
-                        <Input
-                            id="email"
-                            name="email"
-                            value={employee.email}
-                            onChange={onInputChange}
-                        />
-                    ) : (
-                        <p className="text-sm text-gray-700">{employee.email}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    {isEditing ? (
-                        <Input
-                            id="phone"
-                            name="phone"
-                            value={employee.phone}
-                            onChange={onInputChange}
-                        />
-                    ) : (
-                        <p className="text-sm text-gray-700">{employee.phone}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    {isEditing ? (
-                        <Input
-                            id="department"
-                            name="department"
-                            value={employee.department}
-                            onChange={onInputChange}
-                        />
-                    ) : (
-                        <p className="text-sm text-gray-700">{employee.department}</p>
-                    )}
+            <CardContent className="pt-6">
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-sm font-medium">Email</label>
+                        <p className="mt-1">{employee.user?.email || 'Not specified'}</p>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium">Department</label>
+                        {isEditing ? (
+                            <Select
+                                name="department"
+                                value={employee.employeeDetails?.department || ''}
+                                onValueChange={(value) => 
+                                    onInputChange({ target: { name: 'department', value } })
+                                }
+                            >
+                                <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Select department" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {departments.map(dept => (
+                                        <SelectItem key={dept} value={dept}>
+                                            {dept}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <p className="mt-1">{employee.employeeDetails?.department || 'Not specified'}</p>
+                        )}
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium">Phone</label>
+                        {isEditing ? (
+                            <Input
+                                name="phone"
+                                value={employee.employeeDetails?.phoneNumber || ''}
+                                onChange={onInputChange}
+                                className="mt-1"
+                            />
+                        ) : (
+                            <p className="mt-1">{employee.employeeDetails?.phoneNumber || 'Not specified'}</p>
+                        )}
+                    </div>
                 </div>
             </CardContent>
         </Card>

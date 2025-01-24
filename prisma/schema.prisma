@@ -1,82 +1,146 @@
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["tracing"]
 }
 
-model Admin {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model User {
+  id              String          @id @default(uuid())
+  username        String          @unique
+  email           String          @unique
+  password        String
+  role            Role            @default(EMPLOYEE)
+  name            String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  employeeDetails EmployeeDetails?
+  attendance      Attendance[]
+  leaveRequests   LeaveRequest[]
+  leaveBalance    LeaveBalance?
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  payslips        Payslip[]
+
+  @@index([name])
+  @@index([email])
+  @@index([createdAt])
 }
 
-model Employee {
-  id                 Int            @id @default(autoincrement())
-  employeeId         String         @unique
-  firstName          String
-  lastName           String
-  email              String         @unique
-  position           String
-  phone              String?
-  gender             String?
-  department         String?
-  dateOfJoining      DateTime?
-  dateOfBirth        DateTime?
-  fatherName         String?
-  pan                String?
-  personalEmail      String?
-  residentialAddress String?
-  paymentMode        String?
-  accountNumber      String?
-  accountHolderName  String?
-  bankName           String?
-  ifsc               String?
-  accountType        String?
-  baseSalary         Float
-  password           String
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  leaveRequests      LeaveRequest[]
-  attendance         Attendance[]
-  canAccessPayslip   Boolean        @default(false)
+model EmployeeDetails {
+  id                String    @id @default(uuid())
+  employeeId        String    @unique
+  employeeCode      String    @unique
+  position          String
+  department        String
+  salary            Float
+  bankAccountNumber String
+  bankName          String
+  taxId             String
+  employmentType    String    @default("FULL_TIME")
+  joinedAt          DateTime
+  employee          User      @relation(fields: [employeeId], references: [id])
+
+  @@index([department])
+  @@index([position])
 }
 
 model Attendance {
-  id             String        @id @default(cuid())
-  employeeId     Int
-  date           DateTime
-  status         String
-  type           String?
-  leaveRequestId Int?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  employee       Employee      @relation(fields: [employeeId], references: [id])
-  leaveRequest   LeaveRequest? @relation(fields: [leaveRequestId], references: [id])
+  id          String           @id @default(uuid())
+  date        DateTime
+  status      AttendanceStatus @default(PRESENT)
+  employeeId  String
+  employee    User             @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
+  @@index([employeeId])
+  @@index([date])
   @@unique([employeeId, date])
+  @@index([status])
+  @@index([employeeId, status, date])
 }
 
 model LeaveRequest {
-  id         Int          @id @default(autoincrement())
-  employee   Employee     @relation(fields: [employeeId], references: [id])
-  employeeId Int
-  reason     String
-  status     String       @default("PENDING")
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  leaveDates LeaveDate[]
-  attendance Attendance[]
+  id          String       @id @default(uuid())
+  employeeId  String
+  employee    User         @relation(fields: [employeeId], references: [id])
+  reason      String
+  status      LeaveStatus  @default(PENDING)
+  leaveType   LeaveType    @default(ANNUAL)
+  leaveDates  LeaveDate[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model LeaveDate {
-  id             Int          @id @default(autoincrement())
-  date           DateTime
-  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
-  leaveRequestId Int
+  id            String       @id @default(uuid())
+  date          DateTime
+  leaveRequest  LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  leaveRequestId String
+
+  @@index([date])
+}
+
+model LeaveBalance {
+  id          String  @id @default(uuid())
+  employeeId  String  @unique
+  annual      Int     @default(18)
+  sick        Int     @default(12)
+  maternity   Int     @default(180)
+  paternity   Int     @default(30)
+  unpaid      Int     @default(0)
+  employee    User    @relation(fields: [employeeId], references: [id])
+
+  @@index([annual])
+  @@index([sick])
+}
+
+model Payslip {
+    id              String   @id @default(cuid())
+    employeeId      String
+    month           Int
+    year            Int
+    basicSalary     Float
+    grossEarnings   Float
+    totalDeductions Float
+    netPayable      Float
+    paidDays        Int
+    lopDays         Int
+    payDate         DateTime
+    employee        User     @relation(fields: [employeeId], references: [id])
+
+    @@unique([employeeId, month, year])
+    @@index([month, year])
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  UNPAID
 }

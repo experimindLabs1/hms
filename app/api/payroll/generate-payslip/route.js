@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
-import { prisma } from '@/lib/db';
+import prisma from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function POST(req) {
     try {
+        // Check authentication
+        const session = await getServerSession(authOptions);
+        if (!session || session.user.role !== 'ADMIN') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { employeeId, month, year } = await req.json();
 
         // Fetch employee data
-        const employee = await prisma.employee.findUnique({
-            where: { id: employeeId }
+        const employee = await prisma.user.findUnique({
+            where: { id: employeeId },
+            include: {
+                employeeDetails: true
+            }
         });
 
         if (!employee) {
@@ -29,9 +40,9 @@ export async function POST(req) {
             }
         });
 
-        // Calculate using the same logic as payroll route
+        // Calculate payroll details
         const daysInMonth = new Date(year, month, 0).getDate();
-        const perDaySalary = employee.baseSalary / daysInMonth;
+        const perDaySalary = employee.baseSalary ? employee.baseSalary / daysInMonth : 0;
         const presentDays = attendance.filter(a => a.status.toLowerCase() === 'present').length;
         const payableAmount = perDaySalary * presentDays;
 
@@ -56,13 +67,13 @@ export async function POST(req) {
         y += 15;
 
         // Employee details
-        doc.text(`Employee Name: ${employee.firstName} ${employee.lastName}`, 20, y);
+        doc.text(`Employee Name: ${employee.firstName || 'N/A'} ${employee.lastName || 'N/A'}`, 20, y);
         y += 8;
         doc.text(`Employee ID: ${employee.employeeId || 'N/A'}`, 20, y);
         y += 8;
-        doc.text(`Department: ${employee.department || 'N/A'}`, 20, y);
+        doc.text(`Department: ${employee.employeeDetails?.department || 'N/A'}`, 20, y);
         y += 8;
-        doc.text(`Position: ${employee.position || 'N/A'}`, 20, y);
+        doc.text(`Position: ${employee.employeeDetails?.position || 'N/A'}`, 20, y);
         y += 15;
 
         // Salary details
@@ -71,7 +82,7 @@ export async function POST(req) {
 
         // Create table-like structure
         const details = [
-            ['Basic Salary', `Rs. ${employee.baseSalary.toFixed(2)}`],
+            ['Basic Salary', `Rs. ${(employee.baseSalary || 0).toFixed(2)}`],
             ['Per Day Salary', `Rs. ${perDaySalary.toFixed(2)}`],
             ['Days in Month', daysInMonth.toString()],
             ['Present Days', presentDays.toString()],
@@ -95,7 +106,7 @@ export async function POST(req) {
         return new NextResponse(pdfBytes, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename=payslip-${employee.firstName}-${month}-${year}.pdf`
+                'Content-Disposition': `attachment; filename=payslip-${employee.firstName || 'N/A'}-${month}-${year}.pdf`
             }
         });
     } catch (error) {
