@@ -21,7 +21,7 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     className="bg-gray-50"
                 />
                 <span className="text-xs text-gray-500 italic">
-                    This will be automatically generated
+                    This will be your login username
                 </span>
             </div>
             <div className="space-y-2">
@@ -32,20 +32,32 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                     type="password"
                     placeholder="Enter password"
                     name="password"
-                    value={newEmployee.password || ''}
+                    value={newEmployee.password}
                     onChange={handleInputChange}
                     required
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                    Email Address <span className="text-red-500">*</span>
+                    Full Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    placeholder="Enter full name"
+                    name="name"
+                    value={newEmployee.name}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Work Email <span className="text-red-500">*</span>
                 </label>
                 <Input
                     type="email"
-                    placeholder="Enter email address"
+                    placeholder="Enter work email"
                     name="email"
-                    value={newEmployee.email || ''}
+                    value={newEmployee.email}
                     onChange={handleInputChange}
                     required
                 />
@@ -57,29 +69,10 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                 <Input
                     placeholder="Enter phone number"
                     name="phone"
-                    value={newEmployee.phone || ''}
+                    value={newEmployee.phone}
                     onChange={handleInputChange}
                     required
                 />
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                    Gender <span className="text-red-500">*</span>
-                </label>
-                <Select
-                    value={newEmployee.gender || ''}
-                    onValueChange={(value) => handleSelectChange("gender", value)}
-                    required
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                </Select>
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
@@ -87,8 +80,8 @@ export const BasicInformation = ({ newEmployee, handleInputChange, handleSelectC
                 </label>
                 <Input
                     type="date"
-                    name="dateOfJoining"
-                    value={newEmployee.dateOfJoining || ''}
+                    name="joinedAt"
+                    value={newEmployee.joinedAt}
                     onChange={handleInputChange}
                     required
                 />

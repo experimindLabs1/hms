@@ -1,15 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function GET(request) {
     try {
-        const session = await getServerSession(authOptions);
-        
-        if (!session) {
+        const user = await authenticateUser(request);
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -24,7 +22,7 @@ export async function GET(request) {
 
         const attendance = await prisma.attendance.findMany({
             where: {
-                employeeId: session.user.id,
+                employeeId: user.id,
                 date: {
                     gte: startDate,
                     lte: endDate
@@ -33,7 +31,7 @@ export async function GET(request) {
         });
 
         // Calculate attendance statistics
-        const workingDays = endDate.getDate(); // Total days in month
+        const workingDays = endDate.getDate();
         const presentDays = attendance.filter(a => a.status === 'PRESENT').length;
         const absentDays = attendance.filter(a => a.status === 'ABSENT').length;
         const leaveDays = attendance.filter(a => a.status === 'ON_LEAVE').length;

@@ -1,31 +1,24 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function GET(request) {
     try {
-        const session = await getServerSession(authOptions);
-        
-        if (!session) {
-            console.log('No session found');
+        const user = await authenticateUser(request);
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-
-        console.log('Session user:', session.user); // Debug log
 
         // Get query parameters
         const { searchParams } = new URL(request.url);
         const month = searchParams.get('month') ? parseInt(searchParams.get('month')) : new Date().getMonth() + 1;
         const year = searchParams.get('year') ? parseInt(searchParams.get('year')) : new Date().getFullYear();
 
-        console.log('Fetching payslips for:', { month, year, userId: session.user.id }); // Debug log
-
         const payslips = await prisma.payslip.findMany({
             where: {
-                employeeId: session.user.id,
+                employeeId: user.id,
                 month: month,
                 year: year
             },
@@ -46,7 +39,6 @@ export async function GET(request) {
             }
         });
 
-        console.log('Found payslips:', payslips); // Debug log
         return NextResponse.json(payslips);
         
     } catch (error) {

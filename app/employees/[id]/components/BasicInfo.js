@@ -11,7 +11,7 @@ export function BasicInfo({ employee, isEditing, onInputChange }) {
                 <div className="space-y-4">
                     <div>
                         <label className="text-sm font-medium">Email</label>
-                        <p className="mt-1">{employee.user?.email || 'Not specified'}</p>
+                        <p className="mt-1">{employee.email || 'Not specified'}</p>
                     </div>
                     <div>
                         <label className="text-sm font-medium">Department</label>
@@ -43,12 +43,12 @@ export function BasicInfo({ employee, isEditing, onInputChange }) {
                         {isEditing ? (
                             <Input
                                 name="phone"
-                                value={employee.employeeDetails?.phoneNumber || ''}
+                                value={employee.employeeDetails?.phone || ''}
                                 onChange={onInputChange}
                                 className="mt-1"
                             />
                         ) : (
-                            <p className="mt-1">{employee.employeeDetails?.phoneNumber || 'Not specified'}</p>
+                            <p className="mt-1">{employee.employeeDetails?.phone || 'Not specified'}</p>
                         )}
                     </div>
                 </div>

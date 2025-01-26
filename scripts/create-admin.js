@@ -23,7 +23,7 @@ async function createAdmin() {
         const admin = await prisma.user.create({
             data: {
                 email: 'admin@company.com',
-                username: 'admin',
+                employeeId: 'ADMIN001',
                 password: hashedPassword,
                 name: 'System Admin',
                 role: 'ADMIN',
@@ -34,9 +34,12 @@ async function createAdmin() {
                         salary: 0,
                         bankAccountNumber: 'N/A',
                         bankName: 'N/A',
-                        taxId: 'N/A',
-                        employeeCode: 'ADMIN001',
-                        joinedAt: new Date(),
+                        employmentType: 'FULL_TIME',
+                        joinedAt: new Date("2025-01-25T12:11:40.835Z"),
+                        dateOfBirth: new Date("1990-01-01"),
+                        phone: '0000000000',
+                        address: 'Company HQ',
+                        gender: 'OTHER'
                     }
                 }
             }

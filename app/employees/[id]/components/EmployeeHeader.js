@@ -8,45 +8,28 @@ export function EmployeeHeader({ employee, isEditing, onInputChange }) {
         <Card className="col-span-full">
             <CardHeader className="text-center">
                 <Avatar className="w-24 h-24 mx-auto mb-4">
-                    <AvatarImage src={`/placeholder.svg?height=96&width=96`} alt={employee.firstName} />
+                    <AvatarImage src={`/placeholder.svg?height=96&width=96`} alt={employee.name} />
                     <AvatarFallback className="text-2xl">
-                        {employee.firstName?.[0]}
-                        {employee.lastName?.[0]}
+                        {employee.name?.[0]}
                     </AvatarFallback>
                 </Avatar>
                 <CardTitle className="text-2xl font-bold mb-4">
                     {isEditing ? (
                         <div className="flex gap-2 justify-center">
                             <Input
-                                name="firstName"
-                                value={employee.firstName}
+                                name="name"
+                                value={employee.name || ''}
                                 onChange={onInputChange}
-                                className="w-1/3 text-center"
-                            />
-                            <Input
-                                name="lastName"
-                                value={employee.lastName}
-                                onChange={onInputChange}
-                                className="w-1/3 text-center"
+                                className="w-2/3 text-center"
                             />
                         </div>
                     ) : (
-                        `${employee.firstName} ${employee.lastName}`
+                        employee.name
                     )}
                 </CardTitle>
                 <div className="space-y-2">
-                    <Label htmlFor="employeeId">Employee ID</Label>
-                    {isEditing ? (
-                        <Input
-                            id="employeeId"
-                            name="employeeId"
-                            value={employee.employeeId}
-                            onChange={onInputChange}
-                            className="w-1/3 mx-auto text-center"
-                        />
-                    ) : (
-                        <p className="text-gray-700">({employee.employeeId})</p>
-                    )}
+                    <Label htmlFor="employeeCode">Employee Code</Label>
+                    <p className="text-gray-700">({employee.employeeId})</p>
                 </div>
                 <div className="space-y-2 mt-4">
                     <Label htmlFor="position">Position</Label>
@@ -54,12 +37,12 @@ export function EmployeeHeader({ employee, isEditing, onInputChange }) {
                         <Input
                             id="position"
                             name="position"
-                            value={employee.position}
+                            value={employee.employeeDetails?.position || ''}
                             onChange={onInputChange}
                             className="w-1/2 mx-auto text-center"
                         />
                     ) : (
-                        <p className="text-gray-500">{employee.position}</p>
+                        <p className="text-gray-500">{employee.employeeDetails?.position}</p>
                     )}
                 </div>
             </CardHeader>

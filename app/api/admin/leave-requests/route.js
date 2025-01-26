@@ -1,13 +1,17 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function GET(request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
         }
 
         const leaveRequests = await prisma.leaveRequest.findMany({
@@ -50,15 +54,17 @@ export async function GET(request) {
 
 export async function PATCH(request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+          return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 401 }
+          );
+        }    
 
         const data = await request.json();
         const { leaveRequestId, status } = data;
 
-        // Update leave request status
         const updatedRequest = await prisma.leaveRequest.update({
             where: { id: leaveRequestId },
             data: { status },
@@ -73,7 +79,6 @@ export async function PATCH(request) {
             }
         });
 
-        // If approved, create attendance records for leave dates
         if (status === 'APPROVED') {
             await Promise.all(
                 updatedRequest.leaveDates.map(date =>

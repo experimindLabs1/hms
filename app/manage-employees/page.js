@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from "@/components/ui/calendar";
 import {
     Select,
     SelectContent,
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import LeaveRequests from './leave-requests';
 import { toast } from 'react-hot-toast';
+import { format } from 'date-fns';
 
 const formatDateToISO = (date) => {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -34,15 +34,40 @@ const formatDateToISO = (date) => {
 };
 
 const ATTENDANCE_STATUSES = {
-    PRESENT: { label: 'Present', color: 'bg-green-500 hover:bg-green-600' },
-    ABSENT: { label: 'Absent', color: 'bg-red-500 hover:bg-red-600' },
-    ON_LEAVE: { label: 'On Leave', color: 'bg-yellow-500 hover:bg-yellow-600' },
-    UNMARKED: { label: 'Unmarked', color: 'bg-gray-400 hover:bg-gray-500' }
+    PRESENT: { 
+        label: 'Present', 
+        color: 'from-emerald-400 to-green-500', 
+        hoverColor: 'hover:from-emerald-500 hover:to-green-600',
+        bgLight: 'from-emerald-50/50 to-green-50/30'
+    },
+    ABSENT: { 
+        label: 'Absent', 
+        color: 'from-rose-400 to-red-500', 
+        hoverColor: 'hover:from-rose-500 hover:to-red-600',
+        bgLight: 'from-rose-50/50 to-red-50/30'
+    },
+    ON_LEAVE: { 
+        label: 'On Leave', 
+        color: 'from-amber-400 to-yellow-500', 
+        hoverColor: 'hover:from-amber-500 hover:to-yellow-600',
+        bgLight: 'from-amber-50/50 to-yellow-50/30'
+    },
+    UNMARKED: { 
+        label: 'Unmarked', 
+        color: 'from-slate-400 to-gray-500', 
+        hoverColor: 'hover:from-slate-500 hover:to-gray-600',
+        bgLight: 'from-slate-50/50 to-gray-50/30'
+    }
 };
 
 const getStatusColor = (status) => {
     const statusKey = status?.toUpperCase();
-    return ATTENDANCE_STATUSES[statusKey]?.color || 'bg-gray-500';
+    return ATTENDANCE_STATUSES[statusKey]?.color || 'from-gray-500/90 to-gray-600/80';
+};
+
+const getStatusHoverColor = (status) => {
+    const statusKey = status?.toUpperCase();
+    return ATTENDANCE_STATUSES[statusKey]?.hoverColor || 'hover:from-gray-500 hover:to-gray-600';
 };
 
 const ManageEmployee = () => {
@@ -79,13 +104,39 @@ const ManageEmployee = () => {
         }
     };
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, [selectedDate]);
+    // Memoize the filtered employees to prevent unnecessary recalculations
+    const filteredEmployees = useMemo(() => {
+        return employees.filter(employee => {
+            const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                employee.position?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesDepartment = selectedDepartment === 'all' || 
+                                    employee.department === selectedDepartment;
+            return matchesSearch && matchesDepartment;
+        });
+    }, [employees, searchTerm, selectedDepartment]);
 
-    const updateAttendanceStatus = async (employeeId, newStatus) => {
+    // Memoize the summary calculations
+    const summary = useMemo(() => {
+        return {
+            present: employees.filter(emp => emp.status === 'PRESENT').length,
+            absent: employees.filter(emp => emp.status === 'ABSENT').length,
+            onLeave: employees.filter(emp => emp.status === 'ON_LEAVE').length,
+            unmarked: employees.filter(emp => emp.status === 'UNMARKED').length,
+        };
+    }, [employees]);
+
+    // Memoize handlers to prevent unnecessary re-renders
+    const handleSearchChange = useCallback((e) => {
+        setSearchTerm(e.target.value);
+    }, []);
+
+    const handleDepartmentChange = useCallback((value) => {
+        setSelectedDepartment(value);
+    }, []);
+
+    const updateAttendanceStatus = useCallback(async (employeeId, newStatus) => {
         try {
-            // Optimistic update
+            // Optimistic update for status
             setEmployees(prev => prev.map(emp => {
                 if (emp.id === employeeId) {
                     return { ...emp, status: newStatus };
@@ -93,20 +144,53 @@ const ManageEmployee = () => {
                 return emp;
             }));
 
-            await axios.post('/api/attendance', {
+            // Make API call and get updated data
+            const response = await axios.post('/api/attendance', {
                 employeeId,
                 status: newStatus,
                 date: formatDateToISO(selectedDate)
             });
 
+            // Update employee with new payroll info
+            if (response.data.success) {
+                setEmployees(prev => prev.map(emp => {
+                    if (emp.id === employeeId) {
+                        return {
+                            ...emp,
+                            totalDaysPresent: response.data.presentDays,
+                            payableAmount: emp.perDaySalary * response.data.presentDays
+                        };
+                    }
+                    return emp;
+                }));
+            }
+
             toast.success('Attendance updated');
-            fetchDashboardData(); // Refresh data in background
         } catch (error) {
             console.error('Error updating attendance:', error);
             toast.error('Failed to update attendance');
-            fetchDashboardData(); // Revert on error
+            // Revert on error
+            fetchDashboardData();
         }
-    };
+    }, [selectedDate]);
+
+    const handleDateSelect = useCallback((date) => {
+        setSelectedDate(date);
+    }, []);
+
+    // Memoize modal handlers
+    const handleModalOpen = useCallback(() => {
+        setIsModalOpen(true);
+    }, []);
+
+    const handleModalClose = useCallback(() => {
+        setIsModalOpen(false);
+    }, []);
+
+    // Fetch data only when date changes
+    useEffect(() => {
+        fetchDashboardData();
+    }, [selectedDate]);
 
     const markBulkAttendance = async (status) => {
         try {
@@ -174,59 +258,71 @@ const ManageEmployee = () => {
         }
     };
 
-    const filteredEmployees = employees.filter(employee => {
-        const matchesSearch = 
-            employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.department.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDepartment = selectedDepartment === 'all' || employee.department === selectedDepartment;
-        return matchesSearch && matchesDepartment;
-    });
-
-    const summary = {
-        present: employees.filter(e => e.status.toLowerCase() === 'present').length,
-        absent: employees.filter(e => e.status.toLowerCase() === 'absent').length,
-        onLeave: employees.filter(e => e.status.toLowerCase() === 'on leave').length,
-        unmarked: employees.filter(e => e.status.toLowerCase() === 'unmarked').length,
-    };
-
     if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     if (error) return <div className="flex items-center justify-center min-h-screen text-red-500">{error}</div>;
 
     return (
-        <div className="container mx-auto p-6">
-            <h1 className="text-2xl font-bold text-blue-900 mb-6">Employee Attendance</h1>
+        <div className="container mx-auto p-6 bg-gradient-to-br from-background to-muted/30 min-h-screen">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground/90 to-foreground/60 bg-clip-text text-transparent mb-8">
+                Employee Attendance
+            </h1>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-                <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="text-3xl font-bold text-green-600">{summary.present}</div>
-                    <div className="text-sm text-gray-600">Present</div>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                    <div className="text-3xl font-bold text-red-600">{summary.absent}</div>
-                    <div className="text-sm text-gray-600">Absent</div>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                    <div className="text-3xl font-bold text-yellow-600">{summary.onLeave}</div>
-                    <div className="text-sm text-gray-600">On Leave</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-3xl font-bold text-gray-600">{summary.unmarked}</div>
-                    <div className="text-sm text-gray-600">Unmarked</div>
+            {/* Attendance Summary Section */}
+            <div className="mb-6">
+                <h2 className="text-xl font-semibold">{format(selectedDate, 'MMMM dd, yyyy')}</h2>
+                <div className="grid grid-cols-4 gap-6 mb-8">
+                    <div className="bg-gradient-to-br from-emerald-50/50 to-green-50/30 dark:from-emerald-950/50 dark:to-green-900/30 
+                        backdrop-blur-md p-6 rounded-2xl
+                        shadow-sm hover:shadow-md transition-all duration-300
+                        border border-emerald-100/20 dark:border-emerald-700/20">
+                        <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {summary.present}
+                        </div>
+                        <div className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Present</div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-rose-50/50 to-red-50/30 dark:from-rose-950/50 dark:to-red-900/30
+                        backdrop-blur-md p-6 rounded-2xl
+                        shadow-sm hover:shadow-md transition-all duration-300
+                        border border-rose-100/20 dark:border-rose-700/20">
+                        <div className="text-4xl font-bold text-rose-600 dark:text-rose-400">
+                            {summary.absent}
+                        </div>
+                        <div className="text-sm text-rose-700 dark:text-rose-300 mt-1">Absent</div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-amber-50/50 to-yellow-50/30 dark:from-amber-950/50 dark:to-yellow-900/30
+                        backdrop-blur-md p-6 rounded-2xl
+                        shadow-sm hover:shadow-md transition-all duration-300
+                        border border-amber-100/20 dark:border-amber-700/20">
+                        <div className="text-4xl font-bold text-amber-600 dark:text-amber-400">
+                            {summary.onLeave}
+                        </div>
+                        <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">On Leave</div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-950/50 dark:to-gray-900/30
+                        backdrop-blur-md p-6 rounded-2xl
+                        shadow-sm hover:shadow-md transition-all duration-300
+                        border border-slate-100/20 dark:border-slate-700/20">
+                        <div className="text-4xl font-bold text-slate-600 dark:text-slate-400">
+                            {summary.unmarked}
+                        </div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Unmarked</div>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex gap-6">
+            <div className="flex gap-8">
                 {/* Main Content */}
                 <div className="flex-1">
                     {/* Filters */}
-                    <div className="flex gap-4 mb-6">
+                    <div className="flex gap-4 mb-8">
                         <Select
                             value={selectedDepartment}
-                            onValueChange={setSelectedDepartment}
+                            onValueChange={handleDepartmentChange}
                         >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[180px] bg-background/50 border-0 shadow-sm">
                                 <SelectValue placeholder="Department" />
                             </SelectTrigger>
                             <SelectContent>
@@ -239,82 +335,106 @@ const ManageEmployee = () => {
                         <Input
                             placeholder="Search employees..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1"
+                            onChange={handleSearchChange}
+                            className="flex-1 bg-background/50 border-0 shadow-sm"
                         />
                     </div>
 
                     {/* Employee Table */}
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white/5 rounded-2xl shadow-sm backdrop-blur-xl 
+                        border border-white/10 overflow-hidden">
                         <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payroll Info</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <thead>
+                                <tr className="border-b border-white/10">
+                                    <th className="w-[25%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Name</th>
+                                    <th className="w-[15%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Position</th>
+                                    <th className="w-[15%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Department</th>
+                                    <th className="w-[20%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Status</th>
+                                    <th className="w-[20%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Payroll Info</th>
+                                    <th className="w-[5%] px-6 py-4 text-left text-sm font-medium text-foreground/70">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200">
+                            <tbody className="divide-y divide-white/10">
                                 {filteredEmployees.map((employee) => (
-                                    <tr key={employee.id}>
-                                        <td className="px-6 py-4">
+                                    <tr key={employee.id} className="group hover:bg-muted/30 transition-colors">
+                                        <td className="w-[25%] px-6 py-4">
                                             <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center mr-3">
-                                                    <span className="text-sm font-medium">{employee.name.charAt(0)}</span>
+                                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mr-3">
+                                                    <span className="text-sm font-medium text-primary">
+                                                        {employee.name.charAt(0)}
+                                                    </span>
                                                 </div>
                                                 <Link
                                                     href={`/employees/${employee.id}`}
-                                                    className="font-medium hover:underline"
+                                                    className="font-medium text-foreground/90 hover:text-primary transition-colors"
                                                 >
                                                     {employee.name}
                                                 </Link>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">{employee.position}</td>
-                                        <td className="px-6 py-4">{employee.department}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="p-4 w-full sm:w-1/5">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            className={`w-full justify-between ${getStatusColor(employee.status)}`}
-                                                            variant="ghost"
+                                        <td className="w-[15%] px-6 py-4 text-foreground/70">{employee.position}</td>
+                                        <td className="w-[15%] px-6 py-4 text-foreground/70">{employee.department}</td>
+                                        <td className="w-[20%] px-6 py-4">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        className={`
+                                                            w-32 justify-between bg-gradient-to-r ${getStatusColor(employee.status)}
+                                                            transition-all duration-300 shadow-sm hover:shadow-md
+                                                            rounded-xl hover:scale-[1.02]
+                                                            border-0 text-white
+                                                        `}
+                                                    >
+                                                        <span className="font-medium">
+                                                            {ATTENDANCE_STATUSES[employee.status?.toUpperCase()]?.label || 'Unmarked'}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 opacity-70" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent 
+                                                    align="end"
+                                                    sideOffset={5}
+                                                    className="w-32 p-1.5 bg-white/10 backdrop-blur-xl border-0 shadow-xl
+                                                        animate-in fade-in-0 zoom-in-95
+                                                        data-[side=bottom]:slide-in-from-top-2
+                                                        rounded-xl"
+                                                >
+                                                    {Object.entries(ATTENDANCE_STATUSES).map(([status, { label, color, hoverColor }]) => (
+                                                        <DropdownMenuItem
+                                                            key={status}
+                                                            onClick={() => updateAttendanceStatus(employee.id, status)}
+                                                            className={`
+                                                                bg-gradient-to-r ${color}
+                                                                text-white rounded-lg mb-1.5 last:mb-0
+                                                                transition-all duration-300
+                                                                hover:scale-[1.02] hover:shadow-md
+                                                                ${hoverColor}
+                                                                data-[highlighted]:scale-[1.02]
+                                                                data-[highlighted]:shadow-md
+                                                                data-[highlighted]:${hoverColor}
+                                                            `}
                                                         >
-                                                            <span className="text-white">
-                                                                {ATTENDANCE_STATUSES[employee.status?.toUpperCase()]?.label || 'Unmarked'}
-                                                            </span>
-                                                            <ChevronDown className="h-4 w-4 text-white opacity-50" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-[160px]">
-                                                        {Object.entries(ATTENDANCE_STATUSES).map(([status, { label, color }]) => (
-                                                            <DropdownMenuItem
-                                                                key={status}
-                                                                onClick={() => updateAttendanceStatus(employee.id, status)}
-                                                                className={`${color} text-white focus:text-white focus:bg-opacity-80`}
-                                                            >
-                                                                {label}
-                                                            </DropdownMenuItem>
-                                                        ))}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                            {label}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </td>
+                                        <td className="w-[20%] px-6 py-4">
+                                            <div className="space-y-1">
+                                                <div className="text-sm text-foreground/60">Per day: ₹{employee.perDaySalary}</div>
+                                                <div className="text-sm text-foreground/60">Days: {employee.totalDaysPresent}</div>
+                                                <div className="text-sm font-medium text-foreground/90">
+                                                    Payable: ₹{employee.payableAmount}
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <div className="text-sm text-gray-500">Per day: Rs.{employee.perDaySalary}</div>
-                                                <div className="text-sm text-gray-500">Total days: {employee.totalDaysPresent}</div>
-                                                <div className="text-sm font-medium">Payable: Rs.{employee.payableAmount}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
+                                        <td className="w-[5%] px-6 py-4">
                                             <Button
                                                 size="sm"
-                                                variant="outline"
+                                                variant="ghost"
                                                 onClick={() => generatePayslip(employee)}
+                                                className="hover:bg-primary/10 hover:text-primary"
                                             >
                                                 <FileText className="h-4 w-4" />
                                             </Button>
@@ -328,17 +448,19 @@ const ManageEmployee = () => {
 
                 {/* Sidebar */}
                 <div className="w-80">
-                    <div className="bg-white p-4 rounded-lg shadow mb-6">
-                        <Calendar
-                            mode="single"
+                    <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md rounded-2xl 
+                        shadow-sm border border-white/20 dark:border-white/10 mb-6">
+                        <AdminCalendar
                             selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            className="rounded-md border"
+                            onSelect={handleDateSelect}
                         />
                     </div>
                     <Button 
-                        className="w-full mb-6"
-                        onClick={() => setIsModalOpen(true)}
+                        className="w-full mb-6 bg-gradient-to-r from-primary/80 to-primary/60
+                            hover:from-primary hover:to-primary/80
+                            transition-all duration-300 hover:scale-[1.02]
+                            rounded-xl border-0"
+                        onClick={handleModalOpen}
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Employee
@@ -351,7 +473,7 @@ const ManageEmployee = () => {
 
             <AddEmployeeModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={handleModalClose}
                 onAddEmployee={async (newEmployee) => {
                     try {
                         await axios.post('/api/employees', newEmployee);

@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
-export const PersonalInformation = ({ newEmployee, handleInputChange }) => (
+export const PersonalInformation = ({ newEmployee, handleInputChange, handleSelectChange }) => (
     <div className="space-y-4">
         <h3 className="text-lg font-semibold">Personal Information</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -18,48 +19,67 @@ export const PersonalInformation = ({ newEmployee, handleInputChange }) => (
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
-                    Father's Name <span className="text-red-500">*</span>
+                    Personal Email
                 </label>
                 <Input
-                    placeholder="Enter father's name"
-                    name="fatherName"
-                    value={newEmployee.fatherName}
-                    onChange={handleInputChange}
-                    required
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                    PAN Number <span className="text-red-500">*</span>
-                </label>
-                <Input
-                    placeholder="Enter PAN number"
-                    name="pan"
-                    value={newEmployee.pan}
-                    onChange={handleInputChange}
-                    required
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                    Personal Email <span className="text-red-500">*</span>
-                </label>
-                <Input
+                    type="email"
                     placeholder="Enter personal email"
                     name="personalEmail"
                     value={newEmployee.personalEmail}
                     onChange={handleInputChange}
-                    required
                 />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Gender <span className="text-red-500">*</span>
+                </label>
+                <Select
+                    value={newEmployee.gender}
+                    onValueChange={(value) => handleSelectChange("gender", value)}
+                    required
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
             <div className="space-y-2 col-span-2">
                 <label className="text-sm font-medium text-gray-700">
-                    Residential Address <span className="text-red-500">*</span>
+                    Address <span className="text-red-500">*</span>
                 </label>
                 <Input
                     placeholder="Enter residential address"
-                    name="residentialAddress"
-                    value={newEmployee.residentialAddress}
+                    name="address"
+                    value={newEmployee.address}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Emergency Contact Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    placeholder="Emergency contact person"
+                    name="emergencyContact"
+                    value={newEmployee.emergencyContact}
+                    onChange={handleInputChange}
+                    required
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                    Emergency Contact Phone <span className="text-red-500">*</span>
+                </label>
+                <Input
+                    placeholder="Emergency contact number"
+                    name="emergencyPhone"
+                    value={newEmployee.emergencyPhone}
                     onChange={handleInputChange}
                     required
                 />

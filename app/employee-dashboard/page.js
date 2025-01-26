@@ -10,86 +10,62 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, DollarSign, UserCircle, FileText, Settings } from 'lucide-react'
 import LeaveRequest from './leave-request'
-import { useSession } from "next-auth/react"
 
 export default function EmployeeDashboard() {
   const [employee, setEmployee] = useState(null)
-  const [attendanceData, setAttendanceData] = useState(null)
-  const [payrollData, setPayrollData] = useState(null)
+  const [attendanceData, setAttendanceData] = useState({
+    attendancePercentage: 0,
+    presentDays: 0,
+    absentDays: 0,
+    leaveDays: 0,
+    workingDays: 0
+  })
+  const [payrollData, setPayrollData] = useState({
+    amount: 0,
+    perDaySalary: 0,
+    payableAmount: 0
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const router = useRouter()
   const [payslips, setPayslips] = useState([])
-  const { data: session, status } = useSession()
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
-    }
-
-    if (status === "authenticated" && session?.user?.role !== "EMPLOYEE") {
-      router.push("/")
-      return
-    }
-  }, [status, session, router])
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!session?.user?.id) return;
-      
+    async function fetchEmployeeData() {
       try {
-        setLoading(true)
-        
-        // Get employee profile
-        const employeeResponse = await axios.get('/api/employee/profile', {
-          headers: {
-            'Authorization': `Bearer ${session?.user?.accessToken}`
-          }
-        })
-        setEmployee(employeeResponse.data)
+        // Fetch profile
+        const response = await fetch('/api/employee/profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch employee data');
+        }
+        const data = await response.json();
+        setEmployee(data);
 
-        const currentDate = new Date()
-        const currentMonth = currentDate.getMonth() + 1
-        const currentYear = currentDate.getFullYear()
+        // Fetch attendance data - Fixed the fetch call
+        const currentDate = new Date();
+        const attendanceResponse = await fetch(`/api/employee/attendance?month=${currentDate.getMonth() + 1}&year=${currentDate.getFullYear()}`);
+        if (attendanceResponse.ok) {
+          const attendanceData = await attendanceResponse.json();
+          setAttendanceData(attendanceData);
+        }
 
-        // Get attendance and payroll data
-        const [attendanceResponse, payrollResponse] = await Promise.all([
-          axios.get('/api/employee/attendance', {
-            headers: {
-              'Authorization': `Bearer ${session?.user?.accessToken}`
-            },
-            params: {
-              month: currentMonth,
-              year: currentYear
-            }
-          }),
-          axios.get('/api/employee/payroll', {
-            headers: {
-              'Authorization': `Bearer ${session?.user?.accessToken}`
-            },
-            params: {
-              month: currentMonth,
-              year: currentYear
-            }
-          })
-        ])
+        // Fetch payroll data - Fixed the fetch call
+        const payrollResponse = await fetch(`/api/employee/payroll?month=${currentDate.getMonth() + 1}&year=${currentDate.getFullYear()}`);
+        if (payrollResponse.ok) {
+          const payrollData = await payrollResponse.json();
+          setPayrollData(payrollData);
+        }
 
-        setAttendanceData(attendanceResponse.data)
-        setPayrollData(payrollResponse.data)
-        setError(null)
       } catch (err) {
-        console.error('Error fetching dashboard data:', err)
-        setError('Failed to fetch dashboard data')
+        console.error('Error fetching data:', err);
+        setError(err.message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    if (session?.user?.id) {
-      fetchDashboardData()
-    }
-  }, [session])
+    fetchEmployeeData();
+  }, []);
 
   useEffect(() => {
     const fetchPayslips = async () => {
@@ -139,9 +115,6 @@ export default function EmployeeDashboard() {
             year: new Date(payslip.date).getFullYear()
         }, {
             responseType: 'blob',
-            headers: {
-                'Authorization': `Bearer ${session?.user?.accessToken}`
-            }
         });
 
         // Create a blob from the PDF Stream
@@ -170,7 +143,7 @@ export default function EmployeeDashboard() {
     };
   };
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return <div className="text-center mt-8">Loading...</div>
   }
 
@@ -181,10 +154,6 @@ export default function EmployeeDashboard() {
   if (!employee) return <div className="text-center p-4 bg-yellow-100 rounded-lg m-4">Employee not found</div>
 
   const { firstName, lastName } = getNameParts(employee.name);
-
-  if (!session) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

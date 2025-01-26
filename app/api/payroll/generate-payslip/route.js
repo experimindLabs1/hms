@@ -1,55 +1,53 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
-export async function POST(req) {
+export async function POST(request) {
     try {
-        // Check authentication
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
         }
 
-        const { employeeId, month, year } = await req.json();
+        const { employeeId, month, year } = await request.json();
 
         // Fetch employee data
         const employee = await prisma.user.findUnique({
             where: { id: employeeId },
             include: {
-                employeeDetails: true
-            }
-        });
-
-        if (!employee) {
-            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-        }
-
-        // Fetch attendance data
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-        
-        const attendance = await prisma.attendance.findMany({
-            where: {
-                employeeId,
-                date: {
-                    gte: startDate,
-                    lte: endDate
+                employeeDetails: true,
+                attendance: {
+                    where: {
+                        date: {
+                            gte: new Date(year, month - 1, 1),
+                            lt: new Date(year, month, 1)
+                        }
+                    }
                 }
             }
         });
 
+        if (!employee) {
+            return NextResponse.json(
+                { error: 'Employee not found' },
+                { status: 404 }
+            );
+        }
+
         // Calculate payroll details
         const daysInMonth = new Date(year, month, 0).getDate();
-        const perDaySalary = employee.baseSalary ? employee.baseSalary / daysInMonth : 0;
-        const presentDays = attendance.filter(a => a.status.toLowerCase() === 'present').length;
+        const perDaySalary = employee.employeeDetails?.salary ? employee.employeeDetails.salary / daysInMonth : 0;
+        const presentDays = employee.attendance.filter(a => a.status === 'PRESENT').length;
         const payableAmount = perDaySalary * presentDays;
 
         // Create PDF document
         const doc = new jsPDF();
-        
-        // Set initial y position
         let y = 20;
 
         // Add company header
@@ -67,9 +65,9 @@ export async function POST(req) {
         y += 15;
 
         // Employee details
-        doc.text(`Employee Name: ${employee.firstName || 'N/A'} ${employee.lastName || 'N/A'}`, 20, y);
+        doc.text(`Employee Name: ${employee.name || 'N/A'}`, 20, y);
         y += 8;
-        doc.text(`Employee ID: ${employee.employeeId || 'N/A'}`, 20, y);
+        doc.text(`Employee ID: ${employee.employeeDetails?.employeeCode || 'N/A'}`, 20, y);
         y += 8;
         doc.text(`Department: ${employee.employeeDetails?.department || 'N/A'}`, 20, y);
         y += 8;
@@ -82,7 +80,7 @@ export async function POST(req) {
 
         // Create table-like structure
         const details = [
-            ['Basic Salary', `Rs. ${(employee.baseSalary || 0).toFixed(2)}`],
+            ['Basic Salary', `Rs. ${(employee.employeeDetails?.salary || 0).toFixed(2)}`],
             ['Per Day Salary', `Rs. ${perDaySalary.toFixed(2)}`],
             ['Days in Month', daysInMonth.toString()],
             ['Present Days', presentDays.toString()],
@@ -106,11 +104,14 @@ export async function POST(req) {
         return new NextResponse(pdfBytes, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename=payslip-${employee.firstName || 'N/A'}-${month}-${year}.pdf`
+                'Content-Disposition': `attachment; filename=payslip-${employee.name || 'employee'}-${month}-${year}.pdf`
             }
         });
     } catch (error) {
         console.error('Error generating payslip:', error);
-        return NextResponse.json({ error: 'Failed to generate payslip' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to generate payslip' },
+            { status: 500 }
+        );
     }
 } 

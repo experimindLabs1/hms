@@ -1,17 +1,21 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 import { getAttendanceByDate } from '@/services/attendanceService'
 
 const VALID_STATUSES = new Set(['PRESENT', 'ABSENT', 'ON_LEAVE', 'UNMARKED']);
 
 export async function POST(request) {
     try {
-        // Auth check
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // Check authentication
+        const user = await authenticateUser(request);
+        if (!user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
         }
 
         const { employeeId, status, date } = await request.json();
@@ -25,9 +29,11 @@ export async function POST(request) {
             );
         }
 
-        // Optimize date handling
-        const attendanceDate = new Date(date);
-        attendanceDate.setHours(0, 0, 0, 0);
+        // Fix timezone handling
+        const localDate = new Date(date);
+        localDate.setHours(0, 0, 0, 0);
+        const tzOffset = localDate.getTimezoneOffset() * 60000; // offset in milliseconds
+        const attendanceDate = new Date(localDate.getTime() - tzOffset);
 
         // Single efficient query with transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -78,36 +84,45 @@ export async function POST(request) {
     } catch (error) {
         console.error('Attendance error:', error);
         return NextResponse.json(
-            { error: 'Failed to update attendance' },
+            { error: 'Failed to mark attendance' },
             { status: 500 }
         );
     }
 }
 
 export async function GET(request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+        // Check authentication
+        const user = await authenticateUser(request);
+        if (!user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        const { searchParams } = new URL(request.url);
+        const date = searchParams.get('date');
+        
+        // Fix timezone for GET request
+        const localDate = new Date(date);
+        localDate.setHours(0, 0, 0, 0);
+        const tzOffset = localDate.getTimezoneOffset() * 60000;
+        const adjustedDate = new Date(localDate.getTime() - tzOffset);
+        
+        const attendance = await getAttendanceByDate(adjustedDate);
+        
+        return NextResponse.json(attendance, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200'
+            }
+        });
+    } catch (error) {
+        console.error('Attendance error:', error);
+        return NextResponse.json(
+            { error: 'Failed to get attendance status' },
+            { status: 500 }
+        );
     }
-
-    const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date');
-    
-    const attendance = await getAttendanceByDate(date);
-    
-    // Set cache headers
-    const headers = {
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200'
-    };
-
-    return NextResponse.json(attendance, { headers });
-  } catch (error) {
-    console.error('Attendance Error:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
-  }
 }
 

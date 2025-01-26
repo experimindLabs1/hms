@@ -1,16 +1,18 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server'
 import { updateLeaveStatus } from '@/services/leaveService'
 import { auth } from '@/lib/auth'
 
 export async function PATCH(request, { params }) {
   try {
-    const session = await auth(request)
-    if (!session?.user?.role !== 'ADMIN') {
+    const decoded = await auth(request)
+    if (decoded.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { status } = await request.json()
-    const leave = await updateLeaveStatus(params.id, status, session.user.id)
+    const leave = await updateLeaveStatus(params.id, status, decoded.userId)
 
     return NextResponse.json(leave)
   } catch (error) {

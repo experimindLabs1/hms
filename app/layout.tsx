@@ -4,7 +4,7 @@ import "./globals.css";
 import { Navbar } from "./components/Navbar"
 import { Toaster } from "sonner";
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Providers } from './providers'
+import { Providers } from './providers';
 
 
 

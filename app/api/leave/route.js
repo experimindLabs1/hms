@@ -1,13 +1,13 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server'
 import { getLeaveRequests, createLeaveRequest } from '@/services/leaveService'
-import { auth } from '@/lib/auth'
+import { authenticateUser } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 
 export async function GET(request) {
   try {
-    const session = await auth(request)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await authenticateUser(request)
 
     const { searchParams } = new URL(request.url)
     const filters = {
@@ -36,15 +36,12 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await auth(request)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await authenticateUser(request)
 
     const body = await request.json()
     const leave = await createLeaveRequest({
       ...body,
-      employeeId: session.user.id
+      employeeId: user.id
     })
 
     return NextResponse.json(leave, { status: 201 })

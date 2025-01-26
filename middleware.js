@@ -1,41 +1,57 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';  // Using jose instead of jsonwebtoken for Edge compatibility
 
-export default withAuth(
-    function middleware(req) {
-        const token = req.nextauth.token;
-        const path = req.nextUrl.pathname;
-
-        // If user is an employee, they should only access employee routes
-        if (token?.role === "EMPLOYEE") {
-            if (!path.startsWith("/employee-dashboard")) {
-                return NextResponse.redirect(new URL("/employee-dashboard", req.url));
-            }
-        }
-
-        // If user is an admin, they should only access admin routes
-        if (token?.role === "ADMIN") {
-            if (path.startsWith("/employee-dashboard")) {
-                return NextResponse.redirect(new URL("/manage-employees", req.url));
-            }
-        }
-
-        return NextResponse.next();
-    },
-    {
-        callbacks: {
-            authorized: ({ token }) => !!token
-        }
-    }
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'your-secret-key'
 );
+
+async function verifyAuth(token) {
+  try {
+    const { payload } = await jwtVerify(token, SECRET_KEY);
+    return payload;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}
+
+export async function middleware(request) {
+  try {
+    const token = request.cookies.get('token')?.value;
+
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const verifiedToken = await verifyAuth(token);
+    if (!verifiedToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // Check role-based access
+    const { pathname } = request.nextUrl;
+    if (pathname.startsWith('/manage-employees') && verifiedToken.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/employee-dashboard', request.url));
+    }
+
+    if (pathname.startsWith('/employee-dashboard') && verifiedToken.role !== 'EMPLOYEE') {
+      return NextResponse.redirect(new URL('/manage-employees', request.url));
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error('Middleware error:', error);
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+}
 
 // Protect these routes
 export const config = {
-    matcher: [
-        "/manage-employees/:path*",
-        "/employee-dashboard/:path*",
-        "/manage-employees",
-        "/employee-dashboard"
-    ]
+  matcher: [
+    '/manage-employees/:path*',
+    '/employee-dashboard/:path*',
+    '/manage-employees',
+    '/employee-dashboard'
+  ]
 };
 

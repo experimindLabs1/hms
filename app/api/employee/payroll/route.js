@@ -1,26 +1,22 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function GET(request) {
     try {
-        const session = await getServerSession(authOptions);
-        
-        if (!session) {
+        const user = await authenticateUser(request);
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get query parameters
         const { searchParams } = new URL(request.url);
         const month = parseInt(searchParams.get('month'));
         const year = parseInt(searchParams.get('year'));
 
-        // Get employee details with salary information
         const employee = await prisma.user.findUnique({
-            where: { id: session.user.id },
+            where: { id: user.id },
             include: {
                 employeeDetails: true,
                 attendance: {
@@ -41,7 +37,6 @@ export async function GET(request) {
             );
         }
 
-        // Calculate payroll data
         const daysInMonth = new Date(year, month, 0).getDate();
         const presentDays = employee.attendance.filter(a => a.status === 'PRESENT').length;
         const salary = employee.employeeDetails.salary;

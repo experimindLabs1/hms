@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { authenticateUser } from '@/lib/auth'
 
 // Helper function to get days in month
 const getDaysInMonth = (date) => {
@@ -12,9 +11,9 @@ const getDaysInMonth = (date) => {
 
 export async function GET(request) {
   try {
-    // Auth check
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    // Auth check using JWT
+    const user = await authenticateUser(request)
+    if (!user || user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

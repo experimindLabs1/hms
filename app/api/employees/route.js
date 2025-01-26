@@ -1,103 +1,163 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/db';
+import { authenticateUser, hashPassword } from '@/lib/auth';
 
-async function generateEmployeeCode() {
-    // Find the last employee code
-    const lastEmployee = await prisma.employeeDetails.findFirst({
-        orderBy: {
-            employeeCode: 'desc'
-        }
-    });
-
-    if (!lastEmployee) {
-        return 'EMP001'; // First employee
-    }
-
-    // Extract the number from the last code and increment
-    const lastNumber = parseInt(lastEmployee.employeeCode.replace('EMP', ''));
-    const nextNumber = lastNumber + 1;
-    return `EMP${nextNumber.toString().padStart(3, '0')}`;
-}
-
-export async function POST(request) {
+export async function POST(req) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const data = await request.json();
+        const data = await req.json();
         
-        // Generate the next employee code
-        const employeeCode = await generateEmployeeCode();
+        // Hash the password before storing
+        const hashedPassword = await hashPassword(data.password);
+        
+        // Get the latest employee ID
+        const lastEmployee = await prisma.user.findFirst({
+            where: {
+                role: 'EMPLOYEE'
+            },
+            orderBy: {
+                employeeId: 'desc'
+            }
+        });
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-
-        // Validate required fields
-        if (!data.bankAccountNumber) {
-            return NextResponse.json(
-                { error: 'Bank account number is required' },
-                { status: 400 }
-            );
+        // Generate new employee ID
+        let newEmployeeId;
+        if (!lastEmployee) {
+            newEmployeeId = 'EMP001';  // First employee
+        } else {
+            const lastNumber = parseInt(lastEmployee.employeeId.replace('EMP', ''));
+            newEmployeeId = `EMP${String(lastNumber + 1).padStart(3, '0')}`;
         }
 
-        // Parse salary as float
-        const salary = parseFloat(data.salary);
-        if (isNaN(salary)) {
-            return NextResponse.json(
-                { error: 'Valid salary is required' },
-                { status: 400 }
-            );
-        }
-
-        // Validate date
-        const joinedAt = new Date(data.dateOfJoining);
-        if (isNaN(joinedAt.getTime())) {
-            return NextResponse.json(
-                { error: 'Valid joining date is required' },
-                { status: 400 }
-            );
-        }
-
-        // Create user with employee details
-        const newUser = await prisma.user.create({
+        // Create user with auto-generated employeeId and all related records
+        const user = await prisma.user.create({
             data: {
+                employeeId: newEmployeeId,
                 email: data.email,
-                username: data.email.split('@')[0],
                 password: hashedPassword,
                 name: data.name,
-                role: 'EMPLOYEE',
+                role: "EMPLOYEE",
                 employeeDetails: {
                     create: {
-                        employeeCode,
-                        position: data.position || 'Not Specified',
-                        department: data.department || 'Not Specified',
-                        salary: salary,
+                        position: data.position,
+                        department: data.department,
+                        salary: data.salary,
                         bankAccountNumber: data.bankAccountNumber,
-                        bankName: data.bankName || 'Not Specified',
-                        taxId: data.taxId || 'Not Specified',
-                        joinedAt: joinedAt,
-                        employmentType: data.employmentType || 'FULL_TIME'
+                        bankName: data.bankName,
+                        employmentType: data.employmentType,
+                        joinedAt: data.joinedAt,
+                        dateOfBirth: data.dateOfBirth,
+                        personalEmail: data.personalEmail,
+                        phone: data.phone,
+                        address: data.address,
+                        gender: data.gender,
+                    }
+                },
+                leaveBalance: {
+                    create: {
+                        annual: 18,
+                        sick: 12,
+                        maternity: 180,
+                        paternity: 30,
+                        unpaid: 0
                     }
                 }
             },
             include: {
-                employeeDetails: true
+                employeeDetails: true,
+                leaveBalance: true
             }
         });
 
-        // Remove sensitive information
-        const { password, ...userWithoutPassword } = newUser;
-        
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
         return NextResponse.json(userWithoutPassword);
     } catch (error) {
         console.error('Error creating employee:', error);
         return NextResponse.json(
-            { error: 'Failed to create employee: ' + error.message },
+            { error: 'Failed to create employee', details: error.message },
+            { status: 500 }
+        );
+    }
+}
+
+export async function GET(request) {
+    try {
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        const employees = await prisma.user.findMany({
+            where: {
+                role: 'EMPLOYEE'
+            },
+            include: {
+                employeeDetails: true
+            },
+            orderBy: {
+                name: 'asc'
+            }
+        });
+
+        // Remove passwords from response
+        const safeEmployees = employees.map(emp => {
+            const { password, ...employeeWithoutPassword } = emp;
+            return employeeWithoutPassword;
+        });
+
+        return NextResponse.json(safeEmployees);
+
+    } catch (error) {
+        console.error('Error fetching employees:', error);
+        return NextResponse.json(
+            { error: 'Failed to fetch employees' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function DELETE(request) {
+    try {
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        const url = new URL(request.url);
+        const employeeId = url.pathname.split('/').pop();
+
+        // Check if the employee exists
+        const employee = await prisma.user.findUnique({
+            where: { id: employeeId },
+            include: { employeeDetails: true }
+        });
+
+        if (!employee) {
+            return NextResponse.json(
+                { error: 'Employee not found' },
+                { status: 404 }
+            );
+        }
+
+        // Delete the employee and related details
+        await prisma.user.delete({
+            where: { id: employeeId }
+        });
+
+        return NextResponse.json({ message: 'Employee deleted successfully' });
+
+    } catch (error) {
+        console.error('Error deleting employee:', error);
+        return NextResponse.json(
+            { error: 'Failed to delete employee' },
             { status: 500 }
         );
     }

@@ -1,21 +1,20 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 // GET employee details
 export async function GET(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = params;
-
         const employee = await prisma.user.findUnique({
             where: {
-                id: id
+                id: params.id
             },
             include: {
                 employeeDetails: true,
@@ -50,14 +49,11 @@ export async function GET(request, { params }) {
             );
         }
 
-        // Remove sensitive information
-        const { password, resetToken, resetTokenExpiry, ...safeEmployee } = employee;
-
-        return NextResponse.json(safeEmployee);
+        return NextResponse.json(employee);
     } catch (error) {
         console.error('Error fetching employee:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch employee data' },
+            { error: 'Failed to fetch employee' },
             { status: 500 }
         );
     }
@@ -66,18 +62,38 @@ export async function GET(request, { params }) {
 // DELETE employee
 export async function DELETE(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
         }
 
         const { id } = params;
 
-        // Delete related records first
+        // First check if employee exists
+        const employee = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                employeeDetails: true
+            }
+        });
+
+        if (!employee) {
+            return NextResponse.json(
+                { error: 'Employee not found' },
+                { status: 404 }
+            );
+        }
+
+        // Delete employee and related records in a transaction
         await prisma.$transaction([
+            // Delete attendance records
             prisma.attendance.deleteMany({
                 where: { employeeId: id }
             }),
+            // Delete leave requests and associated dates
             prisma.leaveDate.deleteMany({
                 where: {
                     leaveRequest: {
@@ -88,25 +104,36 @@ export async function DELETE(request, { params }) {
             prisma.leaveRequest.deleteMany({
                 where: { employeeId: id }
             }),
-            prisma.leaveBalance.delete({
+            // Delete leave balance
+            prisma.leaveBalance.deleteMany({
                 where: { employeeId: id }
-            }).catch(() => {}), // Ignore if doesn't exist
-            prisma.employeeDetails.delete({
-                where: { employeeId: id }
-            }).catch(() => {}), // Ignore if doesn't exist
+            }),
+            // Delete payslips
             prisma.payslip.deleteMany({
                 where: { employeeId: id }
             }),
+            // Delete employee details only if they exist
+            ...(employee.employeeDetails 
+                ? [prisma.employeeDetails.delete({
+                    where: { employeeId: id }
+                })]
+                : []
+            ),
+            // Finally delete the user
             prisma.user.delete({
-                where: { id: id }
+                where: { id }
             })
         ]);
 
         return NextResponse.json({ message: 'Employee deleted successfully' });
+
     } catch (error) {
         console.error('Error deleting employee:', error);
         return NextResponse.json(
-            { error: 'Failed to delete employee' },
+            { 
+                error: 'Failed to delete employee',
+                details: error.message
+            },
             { status: 500 }
         );
     }
@@ -115,8 +142,8 @@ export async function DELETE(request, { params }) {
 // PATCH employee details
 export async function PATCH(request, { params }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || session.user.role !== 'ADMIN') {
+        const user = await authenticateUser(request);
+        if (!user || user.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -143,10 +170,7 @@ export async function PATCH(request, { params }) {
             }
         });
 
-        // Remove sensitive information
-        const { password, resetToken, resetTokenExpiry, ...safeEmployee } = updatedEmployee;
-
-        return NextResponse.json(safeEmployee);
+        return NextResponse.json(updatedEmployee);
     } catch (error) {
         console.error('Error updating employee:', error);
         return NextResponse.json(

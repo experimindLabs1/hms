@@ -1,28 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id              String          @id @default(uuid())
-  username        String          @unique
-  email           String          @unique
-  password        String
-  role            Role            @default(EMPLOYEE)
-  name            String
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  employeeDetails EmployeeDetails?
-  attendance      Attendance[]
-  leaveRequests   LeaveRequest[]
-  leaveBalance    LeaveBalance?
-  resetToken      String?
+  id               String           @id @default(uuid())
+  employeeId       String           @unique
+  email            String           @unique
+  password         String
+  role             Role             @default(EMPLOYEE)
+  name             String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  resetToken       String?
   resetTokenExpiry DateTime?
-  payslips        Payslip[]
+  attendance       Attendance[]
+  employeeDetails  EmployeeDetails?
+  leaveBalance     LeaveBalance?
+  leaveRequests    LeaveRequest[]
+  payslips         Payslip[]
 
   @@index([name])
   @@index([email])
@@ -30,49 +30,52 @@ model User {
 }
 
 model EmployeeDetails {
-  id                String    @id @default(uuid())
-  employeeId        String    @unique
-  employeeCode      String    @unique
+  id                String   @id @default(uuid())
   position          String
   department        String
   salary            Float
   bankAccountNumber String
   bankName          String
-  taxId             String
-  employmentType    String    @default("FULL_TIME")
+  employmentType    String   @default("FULL_TIME")
   joinedAt          DateTime
-  employee          User      @relation(fields: [employeeId], references: [id])
+  dateOfBirth       DateTime
+  personalEmail     String?
+  phone             String
+  address           String
+  gender            String
+  userId            String   @unique
+  employee          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([department])
   @@index([position])
 }
 
 model Attendance {
-  id          String           @id @default(uuid())
-  date        DateTime
-  status      AttendanceStatus @default(PRESENT)
-  employeeId  String
-  employee    User             @relation(fields: [employeeId], references: [id])
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id         String           @id @default(uuid())
+  date       DateTime
+  status     AttendanceStatus @default(PRESENT)
+  employeeId String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  employee   User             @relation(fields: [employeeId], references: [id])
 
+  @@unique([employeeId, date])
   @@index([employeeId])
   @@index([date])
-  @@unique([employeeId, date])
   @@index([status])
   @@index([employeeId, status, date])
 }
 
 model LeaveRequest {
-  id          String       @id @default(uuid())
-  employeeId  String
-  employee    User         @relation(fields: [employeeId], references: [id])
-  reason      String
-  status      LeaveStatus  @default(PENDING)
-  leaveType   LeaveType    @default(ANNUAL)
-  leaveDates  LeaveDate[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id         String      @id @default(uuid())
+  employeeId String
+  reason     String
+  status     LeaveStatus @default(PENDING)
+  leaveType  LeaveType   @default(ANNUAL)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  leaveDates LeaveDate[]
+  employee   User        @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId])
   @@index([status])
@@ -80,44 +83,44 @@ model LeaveRequest {
 }
 
 model LeaveDate {
-  id            String       @id @default(uuid())
-  date          DateTime
-  leaveRequest  LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  id             String       @id @default(uuid())
+  date           DateTime
   leaveRequestId String
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id])
 
   @@index([date])
 }
 
 model LeaveBalance {
-  id          String  @id @default(uuid())
-  employeeId  String  @unique
-  annual      Int     @default(18)
-  sick        Int     @default(12)
-  maternity   Int     @default(180)
-  paternity   Int     @default(30)
-  unpaid      Int     @default(0)
-  employee    User    @relation(fields: [employeeId], references: [id])
+  id         String @id @default(uuid())
+  employeeId String @unique
+  annual     Int    @default(18)
+  sick       Int    @default(12)
+  maternity  Int    @default(180)
+  paternity  Int    @default(30)
+  unpaid     Int    @default(0)
+  employee   User   @relation(fields: [employeeId], references: [id])
 
   @@index([annual])
   @@index([sick])
 }
 
 model Payslip {
-    id              String   @id @default(cuid())
-    employeeId      String
-    month           Int
-    year            Int
-    basicSalary     Float
-    grossEarnings   Float
-    totalDeductions Float
-    netPayable      Float
-    paidDays        Int
-    lopDays         Int
-    payDate         DateTime
-    employee        User     @relation(fields: [employeeId], references: [id])
+  id              String   @id @default(cuid())
+  employeeId      String
+  month           Int
+  year            Int
+  basicSalary     Float
+  grossEarnings   Float
+  totalDeductions Float
+  netPayable      Float
+  paidDays        Int
+  lopDays         Int
+  payDate         DateTime
+  employee        User     @relation(fields: [employeeId], references: [id])
 
-    @@unique([employeeId, month, year])
-    @@index([month, year])
+  @@unique([employeeId, month, year])
+  @@index([month, year])
 }
 
 enum Role {
