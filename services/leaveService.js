@@ -1,4 +1,4 @@
-import prisma from '@/lib/db'
+import { prisma } from '@/lib/db'
 import redis from '@/lib/redis'
 
 export async function getLeaveRequests(filters = {}, page = 1, limit = 10) {

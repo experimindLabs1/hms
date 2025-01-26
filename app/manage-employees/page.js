@@ -12,7 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText, ChevronDown } from 'lucide-react';
+import { Search, Plus, SlidersHorizontal, Download, UserCheck, UserX, FileText, ChevronDown, ClipboardList } from 'lucide-react';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,9 @@ import {
 import LeaveRequests from './leave-requests';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Calendar } from "lucide-react";
 
 const formatDateToISO = (date) => {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -262,87 +265,232 @@ const ManageEmployee = () => {
     if (error) return <div className="flex items-center justify-center min-h-screen text-red-500">{error}</div>;
 
     return (
-        <div className="container mx-auto p-6 bg-gradient-to-br from-background to-muted/30 min-h-screen">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground/90 to-foreground/60 bg-clip-text text-transparent mb-8">
-                Employee Attendance
-            </h1>
-
-            {/* Attendance Summary Section */}
-            <div className="mb-6">
-                <h2 className="text-xl font-semibold">{format(selectedDate, 'MMMM dd, yyyy')}</h2>
-                <div className="grid grid-cols-4 gap-6 mb-8">
-                    <div className="bg-gradient-to-br from-emerald-50/50 to-green-50/30 dark:from-emerald-950/50 dark:to-green-900/30 
-                        backdrop-blur-md p-6 rounded-2xl
-                        shadow-sm hover:shadow-md transition-all duration-300
-                        border border-emerald-100/20 dark:border-emerald-700/20">
-                        <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
-                            {summary.present}
-                        </div>
-                        <div className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Present</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-rose-50/50 to-red-50/30 dark:from-rose-950/50 dark:to-red-900/30
-                        backdrop-blur-md p-6 rounded-2xl
-                        shadow-sm hover:shadow-md transition-all duration-300
-                        border border-rose-100/20 dark:border-rose-700/20">
-                        <div className="text-4xl font-bold text-rose-600 dark:text-rose-400">
-                            {summary.absent}
-                        </div>
-                        <div className="text-sm text-rose-700 dark:text-rose-300 mt-1">Absent</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-amber-50/50 to-yellow-50/30 dark:from-amber-950/50 dark:to-yellow-900/30
-                        backdrop-blur-md p-6 rounded-2xl
-                        shadow-sm hover:shadow-md transition-all duration-300
-                        border border-amber-100/20 dark:border-amber-700/20">
-                        <div className="text-4xl font-bold text-amber-600 dark:text-amber-400">
-                            {summary.onLeave}
-                        </div>
-                        <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">On Leave</div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-950/50 dark:to-gray-900/30
-                        backdrop-blur-md p-6 rounded-2xl
-                        shadow-sm hover:shadow-md transition-all duration-300
-                        border border-slate-100/20 dark:border-slate-700/20">
-                        <div className="text-4xl font-bold text-slate-600 dark:text-slate-400">
-                            {summary.unmarked}
-                        </div>
-                        <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Unmarked</div>
-                    </div>
+        <div className="container mx-auto px-3 py-4 sm:p-6 bg-gradient-to-br from-background to-muted/30 min-h-screen">
+            {/* Header with Date Selection */}
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-foreground/90 to-foreground/60 
+                    bg-clip-text text-transparent">
+                    Employee Attendance
+                </h1>
+                
+                {/* Mobile Calendar Dialog */}
+                <div className="lg:hidden">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span className="text-sm">{format(selectedDate, 'MMM dd')}</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="p-0 bg-background/95 backdrop-blur-md">
+                            <div className="p-3">
+                                <AdminCalendar
+                                    selected={selectedDate}
+                                    onSelect={(date) => {
+                                        handleDateSelect(date);
+                                        // Close dialog after selection
+                                    }}
+                                    className="text-sm"
+                                />
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 
-            <div className="flex gap-8">
-                {/* Main Content */}
-                <div className="flex-1">
-                    {/* Filters */}
-                    <div className="flex gap-4 mb-8">
-                        <Select
-                            value={selectedDepartment}
-                            onValueChange={handleDepartmentChange}
-                        >
-                            <SelectTrigger className="w-[180px] bg-background/50 border-0 shadow-sm">
-                                <SelectValue placeholder="Department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Departments</SelectItem>
-                                <SelectItem value="IT">IT</SelectItem>
-                                <SelectItem value="HR">HR</SelectItem>
-                                <SelectItem value="Finance">Finance</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Input
-                            placeholder="Search employees..."
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            className="flex-1 bg-background/50 border-0 shadow-sm"
-                        />
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 md:gap-6 mb-4 sm:mb-6">
+                {/* Present Card */}
+                <div className="bg-gradient-to-br from-emerald-50/50 to-green-50/30 dark:from-emerald-950/50 dark:to-green-900/30 
+                    backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-xl md:rounded-2xl
+                    shadow-sm hover:shadow-md transition-all duration-300
+                    border border-emerald-100/20">
+                    <div className="text-xl sm:text-2xl md:text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                        {summary.present}
+                    </div>
+                    <div className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 mt-0.5 sm:mt-1">Present</div>
+                </div>
+
+                {/* Absent Card */}
+                <div className="bg-gradient-to-br from-rose-50/50 to-red-50/30 dark:from-rose-950/50 dark:to-red-900/30 
+                    backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-xl md:rounded-2xl
+                    shadow-sm hover:shadow-md transition-all duration-300
+                    border border-rose-100/20">
+                    <div className="text-xl sm:text-2xl md:text-4xl font-bold text-rose-600 dark:text-rose-400">
+                        {summary.absent}
+                    </div>
+                    <div className="text-xs sm:text-sm text-rose-700 dark:text-rose-300 mt-0.5 sm:mt-1">Absent</div>
+                </div>
+
+                {/* On Leave Card */}
+                <div className="bg-gradient-to-br from-amber-50/50 to-yellow-50/30 dark:from-amber-950/50 dark:to-yellow-900/30 
+                    backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-xl md:rounded-2xl
+                    shadow-sm hover:shadow-md transition-all duration-300
+                    border border-amber-100/20">
+                    <div className="text-xl sm:text-2xl md:text-4xl font-bold text-amber-600 dark:text-amber-400">
+                        {summary.onLeave}
+                    </div>
+                    <div className="text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-0.5 sm:mt-1">On Leave</div>
+                </div>
+
+                {/* Unmarked Card */}
+                <div className="bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-950/50 dark:to-gray-900/30 
+                    backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-xl md:rounded-2xl
+                    shadow-sm hover:shadow-md transition-all duration-300
+                    border border-slate-100/20">
+                    <div className="text-xl sm:text-2xl md:text-4xl font-bold text-slate-600 dark:text-slate-400">
+                        {summary.unmarked}
+                    </div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-0.5 sm:mt-1">Unmarked</div>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+                {/* Employee List Section */}
+                <div className="w-full lg:flex-1">
+                    {/* Action Bar */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
+                        <div className="flex gap-2 sm:gap-4 w-full sm:w-auto order-2 sm:order-1">
+                            <Select value={selectedDepartment} onValueChange={handleDepartmentChange}>
+                                <SelectTrigger className="w-full sm:w-[180px] bg-background/50 border-0 shadow-sm h-9 text-sm">
+                                    <SelectValue placeholder="Department" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Departments</SelectItem>
+                                    <SelectItem value="IT">IT</SelectItem>
+                                    <SelectItem value="HR">HR</SelectItem>
+                                    <SelectItem value="Finance">Finance</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Input
+                                placeholder="Search employees..."
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                className="flex-1 bg-background/50 border-0 shadow-sm h-9 text-sm"
+                            />
+                        </div>
+                        
+                        <div className="flex gap-2 w-full sm:w-auto order-1 sm:order-2">
+                            <Button 
+                                className="h-9 bg-gradient-to-r from-primary/80 to-primary/60
+                                    hover:from-primary hover:to-primary/80
+                                    transition-all duration-300
+                                    rounded-xl border-0 text-sm"
+                                onClick={handleModalOpen}
+                            >
+                                <Plus className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Add Employee</span>
+                                <span className="sr-only sm:hidden">Add</span>
+                            </Button>
+
+                            {/* Mobile Leave History Sheet */}
+                            <Sheet>
+                                <SheetTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-9">
+                                        <ClipboardList className="h-4 w-4" />
+                                        <span className="sr-only">Leave Requests</span>
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="right" className="w-full sm:w-[400px] p-0">
+                                    <div className="p-6">
+                                        <LeaveRequests />
+                                    </div>
+                                </SheetContent>
+                            </Sheet>
+                        </div>
                     </div>
 
-                    {/* Employee Table */}
-                    <div className="bg-white/5 rounded-2xl shadow-sm backdrop-blur-xl 
-                        border border-white/10 overflow-hidden">
+                    {/* Mobile Employee List */}
+                    <div className="lg:hidden space-y-3">
+                        {filteredEmployees.map((employee) => (
+                            <div key={employee.id} 
+                                className="bg-white/5 rounded-xl p-4 space-y-3 backdrop-blur-xl 
+                                border border-white/10">
+                                {/* Employee Header */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 
+                                            flex items-center justify-center">
+                                            <span className="text-sm font-medium text-primary">
+                                                {employee.name.charAt(0)}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <Link href={`/employees/${employee.id}`}
+                                                className="font-medium text-sm text-foreground/90 hover:text-primary">
+                                                {employee.name}
+                                            </Link>
+                                            <div className="text-xs text-foreground/60 mt-0.5">
+                                                {employee.position} • {employee.department}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => generatePayslip(employee)}
+                                        className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {/* Status and Payroll */}
+                                <div className="flex items-center justify-between gap-3">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                className={`
+                                                    h-8 px-3 text-xs justify-between bg-gradient-to-r ${getStatusColor(employee.status)}
+                                                    transition-all duration-300 shadow-sm
+                                                    rounded-lg border-0 text-white
+                                                `}
+                                            >
+                                                <span className="font-medium">
+                                                    {ATTENDANCE_STATUSES[employee.status?.toUpperCase()]?.label || 'Unmarked'}
+                                                </span>
+                                                <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent 
+                                            align="end"
+                                            className="w-32 p-1 bg-white/10 backdrop-blur-xl border-0 shadow-xl rounded-lg">
+                                            {Object.entries(ATTENDANCE_STATUSES).map(([status, { label, color, hoverColor }]) => (
+                                                <DropdownMenuItem
+                                                    key={status}
+                                                    onClick={() => updateAttendanceStatus(employee.id, status)}
+                                                    className={`
+                                                        bg-gradient-to-r ${color}
+                                                        text-white rounded-lg mb-1.5 last:mb-0
+                                                        transition-all duration-300
+                                                        hover:scale-[1.02] hover:shadow-md
+                                                        ${hoverColor}
+                                                        data-[highlighted]:scale-[1.02]
+                                                        data-[highlighted]:shadow-md
+                                                        data-[highlighted]:${hoverColor}
+                                                    `}
+                                                >
+                                                    {label}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <div className="text-right">
+                                        <div className="text-xs text-foreground/60">
+                                            ₹{employee.perDaySalary}/day • {employee.totalDaysPresent} days
+                                        </div>
+                                        <div className="text-sm font-medium text-foreground/90">
+                                            ₹{employee.payableAmount}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop Table */}
+                    <div className="hidden lg:block">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-white/10">
@@ -446,31 +594,23 @@ const ManageEmployee = () => {
                     </div>
                 </div>
 
-                {/* Sidebar */}
-                <div className="w-80">
-                    <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md rounded-2xl 
-                        shadow-sm border border-white/20 dark:border-white/10 mb-6">
-                        <AdminCalendar
-                            selected={selectedDate}
-                            onSelect={handleDateSelect}
-                        />
+                {/* Desktop Sidebar - Hidden on Mobile */}
+                <div className="hidden lg:block w-80">
+                    <div className="sticky top-4">
+                        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md rounded-xl 
+                            shadow-sm border border-white/20 dark:border-white/10 p-2 mb-4">
+                            <AdminCalendar
+                                selected={selectedDate}
+                                onSelect={handleDateSelect}
+                                className="text-sm"
+                            />
+                        </div>
+                        <LeaveRequests />
                     </div>
-                    <Button 
-                        className="w-full mb-6 bg-gradient-to-r from-primary/80 to-primary/60
-                            hover:from-primary hover:to-primary/80
-                            transition-all duration-300 hover:scale-[1.02]
-                            rounded-xl border-0"
-                        onClick={handleModalOpen}
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Employee
-                    </Button>
-
-                    {/* Leave Requests Component */}
-                    <LeaveRequests />
                 </div>
             </div>
 
+            {/* Modal */}
             <AddEmployeeModal
                 isOpen={isModalOpen}
                 onClose={handleModalClose}
