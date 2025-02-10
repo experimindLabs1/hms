@@ -28,7 +28,7 @@ export function PersonalInfo({ employee, isEditing, onInputChange }) {
                     )}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="fatherName">Father's Name</Label>
+                    <Label htmlFor="fatherName">Father&apos;s Name</Label>
                     {isEditing ? (
                         <Input
                             id="fatherName"

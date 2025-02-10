@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server'
 import { updateLeaveStatus } from '@/services/leaveService'
-import auth from '@/lib/auth'
+import { auth } from '@/lib/auth'
 
 export async function PATCH(request, { params }) {
   try {

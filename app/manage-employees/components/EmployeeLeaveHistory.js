@@ -19,7 +19,7 @@ export default function EmployeeLeaveHistory({ employeeId }) {
 
     useEffect(() => {
         fetchLeaveHistory();
-    }, [employeeId]);
+    }, [fetchLeaveHistory]);
 
     const fetchLeaveHistory = async () => {
         try {

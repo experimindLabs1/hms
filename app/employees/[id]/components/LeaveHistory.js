@@ -17,7 +17,7 @@ export function LeaveHistory({ employeeId }) {
 
     useEffect(() => {
         fetchLeaveHistory();
-    }, [employeeId]);
+    }, [fetchLeaveHistory]);
 
     const fetchLeaveHistory = async () => {
         try {

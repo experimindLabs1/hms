@@ -179,7 +179,8 @@ const ManageEmployee = () => {
 
     const handleDateSelect = useCallback((date) => {
         setSelectedDate(date);
-    }, []);
+        fetchDashboardData();
+    }, [fetchDashboardData]);
 
     // Memoize modal handlers
     const handleModalOpen = useCallback(() => {
@@ -193,7 +194,7 @@ const ManageEmployee = () => {
     // Fetch data only when date changes
     useEffect(() => {
         fetchDashboardData();
-    }, [selectedDate]);
+    }, [fetchDashboardData]);
 
     const markBulkAttendance = async (status) => {
         try {
