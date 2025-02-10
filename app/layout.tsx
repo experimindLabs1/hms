@@ -39,7 +39,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
           <main>
-            <Navbar />
             <Providers>{children}</Providers>
             <SpeedInsights />
             <Toaster position="top-right" />
